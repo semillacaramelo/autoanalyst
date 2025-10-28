@@ -19,7 +19,7 @@ def get_trading_tasks(agents: Dict[str, any]):
     )
 
     analyze_trend_task = Task(
-        description="""Analyze the 1-minute chart for the asset provided in the context. First, use the fetch_historical_data tool to get data from {start_date} to {end_date}. Then, use the calculate_3ma_signal tool on that data to generate a 'BUY', 'SELL', or 'HOLD' signal.""",
+        description="""Analyze the chart for the asset provided in the context. First, use the fetch_1_minute_historical_data tool to get data from {start_date} to {end_date}. Then, use the calculate_3ma_signal tool on that data to generate a 'BUY', 'SELL', or 'HOLD' signal.""",
         expected_output="A JSON object containing the asset symbol, the signal ('BUY', 'SELL', 'HOLD'), and the latest closing price.",
         context=[select_asset_task],
         agent=trend_analyzer

@@ -22,7 +22,7 @@ def get_trading_agents(llm_config: Dict[str, Any]):
         backstory="A master of technical analysis focused on the 3 MA strategy.",
         verbose=True,
         allow_delegation=False,
-        tools=[fetch_historical_data, calculate_3ma_signal],
+        tools=[fetch_1_minute_historical_data, calculate_3ma_signal],
         llm=llm_config
     )
 

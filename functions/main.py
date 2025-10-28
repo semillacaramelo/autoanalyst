@@ -13,10 +13,16 @@ def run_trading_crew(req: https_fn.CallableRequest):
     """
     HTTPS-triggered Cloud Function to initiate a trading crew run.
     """
+    # 0. Authenticate user
+    if not req.auth:
+        raise https_fn.HttpsError('unauthenticated', 'The function must be called by an authenticated user.')
+    
+    user_id = req.auth.uid
+
     # 1. Extract parameters from the request
     asset = req.data.get('asset')
     if not asset:
-        raise https_fn.HttpsError('invalid-argument', 'The function must be called with a "asset" argument.')
+        raise https_fn.HttpsError('invalid-argument', 'The function must be called with an "asset" argument.')
 
     # 2. Prepare inputs for the crew
     end_date = datetime.now()
@@ -30,6 +36,7 @@ def run_trading_crew(req: https_fn.CallableRequest):
     # 3. Create a run document in Firestore for logging
     run_ref = db.collection('runs').document()
     run_ref.set({
+        'userId': user_id,  # <-- ADDED THIS LINE
         'asset': asset,
         'startTime': firestore.SERVER_TIMESTAMP,
         'status': 'RUNNING'

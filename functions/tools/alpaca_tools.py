@@ -37,6 +37,10 @@ def fetch_historical_data(symbol: str, timeframe: TimeFrame, start_date: str, en
         print(f"Error fetching historical data for {symbol}: {e}")
         return None
 
+def fetch_1_minute_historical_data(symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+    """A specialized tool that fetches only 1-minute historical data."""
+    return fetch_historical_data(symbol, TimeFrame.Minute, start_date, end_date)
+
 def place_market_order(symbol: str, qty: float, side: str):
     """Places a market order via the Alpaca API."""
     trading_client = get_alpaca_trading_client()
