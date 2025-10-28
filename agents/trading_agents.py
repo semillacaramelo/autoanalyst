@@ -2,9 +2,9 @@ from crewai import Agent
 from tools.alpaca_tools import fetch_historical_data, place_market_order
 from tools.analysis_tools import calculate_3ma_signal
 
-def get_trading_agents():
+def get_trading_agents(llm):
     """
-    Creates and returns all the trading agents.
+    Creates and returns all the trading agents, with the specified LLM.
     This function is designed for lazy initialization of agents.
     """
     asset_selector = Agent(
@@ -13,6 +13,7 @@ def get_trading_agents():
         backstory="You are a sharp and discerning analyst with a keen eye for opportunity. You filter out the noise and identify the most promising assets that fit the current trading strategy.",
         verbose=True,
         allow_delegation=False,
+        llm=llm
     )
 
     trend_analyzer = Agent(
@@ -21,7 +22,8 @@ def get_trading_agents():
         backstory="You are a master of technical analysis. You live and breathe charts and indicators. Your sole purpose is to apply the 3 MA strategy flawlessly to generate high-probability trade signals.",
         verbose=True,
         allow_delegation=False,
-        tools=[fetch_historical_data, calculate_3ma_signal]
+        tools=[fetch_historical_data, calculate_3ma_signal],
+        llm=llm
     )
 
     signal_confirmer = Agent(
@@ -30,6 +32,7 @@ def get_trading_agents():
         backstory="You are the guardian of the crew's capital. Cautious and analytical, you scrutinize every signal, checking it against current market volatility and risk parameters before giving the green light.",
         verbose=True,
         allow_delegation=False,
+        llm=llm
     )
 
     trade_executor = Agent(
@@ -38,7 +41,8 @@ def get_trading_agents():
         backstory="You are a cool-headed execution expert. Once a signal is confirmed, you act with speed and precision, translating the crew's decision into a live market order without hesitation.",
         verbose=True,
         allow_delegation=False,
-        tools=[place_market_order]
+        tools=[place_market_order],
+        llm=llm
     )
 
     performance_analyzer = Agent(
@@ -47,6 +51,7 @@ def get_trading_agents():
         backstory="You are a data storyteller. After the trades are done, you meticulously gather the results and translate them into a clear narrative of what worked, what didn't, and why.",
         verbose=True,
         allow_delegation=False,
+        llm=llm
     )
 
     strategy_enhancer = Agent(
@@ -55,6 +60,7 @@ def get_trading_agents():
         backstory="You are a forward-thinking strategist, constantly learning from past performance. Your goal is to analyze the performance reports and suggest concrete ways to adapt and improve the trading logic.",
         verbose=True,
         allow_delegation=False,
+        llm=llm
     )
 
     return {
