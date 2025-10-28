@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import Optional
 
+
 def calculate_3ma_signal(
     historical_data: pd.DataFrame,
     short_window: int = 8,
@@ -45,3 +46,35 @@ def calculate_3ma_signal(
     except Exception as e:
         print(f"An error occurred during 3MA calculation: {e}")
         return None
+
+def get_trade_history():
+    """
+    Simulates fetching trade data.
+    """
+    return [
+        {'symbol': 'SPY', 'side': 'buy', 'quantity': 10, 'entry_price': 450.20, 'exit_price': 451.70, 'pnl': 15.00},
+        {'symbol': 'SPY', 'side': 'sell', 'quantity': 10, 'entry_price': 452.00, 'exit_price': 451.50, 'pnl': 5.00},
+        {'symbol': 'SPY', 'side': 'buy', 'quantity': 5, 'entry_price': 449.80, 'exit_price': 450.10, 'pnl': 1.50},
+        {'symbol': 'SPY', 'side': 'buy', 'quantity': 20, 'entry_price': 453.00, 'exit_price': 450.00, 'pnl': -60.00},
+        {'symbol': 'SPY', 'side': 'sell', 'quantity': 15, 'entry_price': 455.00, 'exit_price': 456.00, 'pnl': -15.00},
+    ]
+
+def calculate_performance_metrics(trade_history):
+    """
+    Calculates and summarizes performance metrics from a list of trades.
+    """
+    total_trades = len(trade_history)
+    winning_trades = sum(1 for trade in trade_history if trade['pnl'] > 0)
+    losing_trades = total_trades - winning_trades
+    win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
+    total_pnl = sum(trade['pnl'] for trade in trade_history)
+
+    report = (
+        "Performance Report:\n"
+        f"- Total Trades: {total_trades}\n"
+        f"- Winning Trades: {winning_trades}\n"
+        f"- Losing Trades: {losing_trades}\n"
+        f"- Win Rate: {win_rate:.1f}%\n"
+        f"- Total P&L: ${total_pnl:.2f}"
+    )
+    return report

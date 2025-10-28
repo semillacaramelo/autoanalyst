@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // For this MVP, allow authenticated users to create runs
+    // and read their own data.
+    match /runs/{runId} {
+      allow create: if request.auth != null;
+      // In a real app, you would add a userId field to the run
+      // and check: resource.data.userId == request.auth.uid
+      allow read: if request.auth != null; 
+    }
+  }
+}

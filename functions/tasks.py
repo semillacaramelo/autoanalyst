@@ -39,9 +39,24 @@ def get_trading_tasks(agents: Dict[str, any]):
         agent=trade_executor
     )
 
+    analyze_performance_task = Task(
+        description="Analyze the simulated trade history. First, use the `get_trade_history` tool to retrieve the data. Then, use the `calculate_performance_metrics` tool on that data to generate a summary report.",
+        expected_output="A string containing a formatted performance report with key metrics like Win Rate and Total P&L.",
+        agent=agents['performance_analyzer']
+    )
+
+    enhance_strategy_task = Task(
+        description="Based on the performance report provided in the context, analyze the weaknesses of the current strategy and propose a specific, actionable improvement. The suggestion should be concise and clear.",
+        expected_output="A short paragraph containing one concrete suggestion for improving the trading strategy.",
+        context=[analyze_performance_task],
+        agent=agents['strategy_enhancer']
+    )
+
     return [
         select_asset_task,
         analyze_trend_task,
         confirm_signal_task,
         execute_trade_task,
+        analyze_performance_task,
+        enhance_strategy_task,
     ]

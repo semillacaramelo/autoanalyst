@@ -1,6 +1,6 @@
 from crewai import Agent
 from tools.alpaca_tools import fetch_historical_data, place_market_order
-from tools.analysis_tools import calculate_3ma_signal
+from tools.analysis_tools import calculate_3ma_signal, get_trade_history, calculate_performance_metrics
 from typing import Dict, Any
 
 def get_trading_agents(llm_config: Dict[str, Any]):
@@ -51,6 +51,7 @@ def get_trading_agents(llm_config: Dict[str, Any]):
         backstory="A data storyteller analyzing what worked and what didn't.",
         verbose=True,
         allow_delegation=False,
+        tools=[get_trade_history, calculate_performance_metrics],
         llm=llm_config
     )
 
