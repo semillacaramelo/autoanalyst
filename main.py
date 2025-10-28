@@ -1,4 +1,4 @@
-from crew_setup import trading_crew
+from crew_setup import create_trading_crew
 from datetime import datetime, timedelta
 
 if __name__ == '__main__':
@@ -17,6 +17,9 @@ if __name__ == '__main__':
         'start_date': formatted_start_date,
         'end_date': formatted_end_date
     }
+
+    # Create the crew
+    trading_crew = create_trading_crew()
 
     # Kickoff the crew with the prepared inputs
     result = trading_crew.kickoff(inputs=inputs)

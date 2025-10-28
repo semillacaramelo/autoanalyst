@@ -1,5 +1,5 @@
 import streamlit as st
-from crew_setup import trading_crew
+from crew_setup import create_trading_crew
 from datetime import datetime, timedelta
 
 # Set the page layout to wide
@@ -42,6 +42,9 @@ if run_button:
         'start_date': formatted_start_date,
         'end_date': formatted_end_date
     }
+
+    # Create and run the crew only when the button is clicked
+    trading_crew = create_trading_crew()
 
     # Execute the crew's kickoff method within a spinner
     with st.spinner('Agents are working... Please wait.'):
