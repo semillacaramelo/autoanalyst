@@ -1,5 +1,6 @@
 from crewai import Agent
 from tools.alpaca_tools import fetch_historical_data, place_market_order
+from tools.analysis_tools import calculate_3ma_signal
 
 # Define the agents for the trading crew
 asset_selector = Agent(
@@ -16,7 +17,7 @@ trend_analyzer = Agent(
     backstory="You are a master of technical analysis. You live and breathe charts and indicators. Your sole purpose is to apply the 3 MA strategy flawlessly to generate high-probability trade signals.",
     verbose=True,
     allow_delegation=False,
-    tools=[fetch_historical_data]
+    tools=[fetch_historical_data, calculate_3ma_signal]
 )
 
 signal_confirmer = Agent(

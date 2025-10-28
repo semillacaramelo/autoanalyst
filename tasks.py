@@ -9,8 +9,8 @@ select_asset_task = Task(
 )
 
 analyze_trend_task = Task(
-    description="Analyze the 1-minute chart for the selected asset using the 3 MA strategy. Generate a 'BUY', 'SELL', or 'HOLD' signal.",
-    expected_output="A JSON object containing the asset symbol, the signal ('BUY', 'SELL', 'HOLD'), and the current price.",
+    description="""Analyze the 1-minute chart for the asset provided in the context. First, use the fetch_historical_data tool to get data from {start_date} to {end_date}. Then, use the calculate_3ma_signal tool on that data to generate a 'BUY', 'SELL', or 'HOLD' signal.""",
+    expected_output="A JSON object containing the asset symbol, the signal ('BUY', 'SELL', 'HOLD'), and the latest closing price.",
     context=[select_asset_task], # Depends on the asset selected
     agent=trend_analyzer
 )
