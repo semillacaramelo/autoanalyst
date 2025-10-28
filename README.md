@@ -16,9 +16,9 @@ This project implements an AI-driven trading crew using the CrewAI framework. Th
     ```bash
     python -m venv venv
     source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-    pip install -r requirements.txt
+    pip install -r requirements.txt --upgrade
     ```
-    *(Note: A `requirements.txt` file will need to be generated from the project's dependencies.)*
+    *(Note: If you have previously installed dependencies, it is recommended to run the `pip install` command with the `--upgrade` flag to ensure you have the correct versions.)*
 
 3.  **Configure API Keys:**
     -   Copy the `.env.template` file to a new file named `.env`:

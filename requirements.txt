@@ -2,5 +2,5 @@ crewai
 langchain-google-genai
 python-dotenv
 pandas
-alpaca-trade-api
+alpaca-py
 streamlit
