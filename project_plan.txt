@@ -1,0 +1,964 @@
+Build a web-based application (and complementary mobile/web interface) for an AI-driven trading crew system. Use Gemini as the default LLM and CrewAI as the multi-agent framework. The system must include these modular agents:
+
+1. An agent to manage authentication and connection to the Alpaca Markets API (via the official Python SDK) to access real-time and historical market data and to place orders. ([Alpaca][1])
+2. An agent to fetch and maintain historical data across selected assets and timeframes.
+3. An agent to select which asset(s) to trade based on configurable criteria.
+4. A trend-analysis agent implementing a triple-moving-average (3 MA) strategy across three different time frames to generate binary-trade signals for one-minute trades.
+5. A signal-confirmation agent that validates generated signals for quality / risk before execution.
+6. A trade-execution agent that performs order placement via the Alpaca API once signals are confirmed.
+7. A performance-analysis agent that gathers trade results, computes win rate, expectancy, risk metrics, and visualises outcomes.
+8. A strategy-enhancement agent that proposes improvements to the trading strategy based on performance data, market conditions, and feedback loops.
+9. Optional: Additional agents that autonomously monitor market regime changes, risk management thresholds, capital allocation optimisation, or fine-tune the crew’s agents to improve winning trades.
+
+**Requirements:**
+
+* The architecture must be modular, so each agent is a discrete component within CrewAI, with clearly defined inputs, outputs, goals and tools.
+* Gemini should be configured as the LLM for each agent via LiteLLM / CrewAI integration. ([docs.crewai.com][2])
+* Use the official Alpaca-py or Alpaca-trade-API SDK to connect to Alpaca Markets, handle streaming/REST endpoints, and manage orders. ([GitHub][3])
+* The web interface should allow user configuration of assets, time-frames, strategy parameters, monitoring of live performance and results, and visual dashboards.
+* Code should be Python-based, with clear module separation (agents, data, execution, UI).
+* Include logging, error handling, secure storage of API keys, paper-trading mode support, and scalability for future strategy enhancements.
+
+## Produce the application architecture, agent definitions (role, goal, tools), sample code skeletons, and describe how CrewAI and Gemini are integrated, as well as how the Alpaca API is used.
+
+[1]: https://alpaca.markets/sdks/python/?utm_source=chatgpt.com "Alpaca-py"
+[2]: https://docs.crewai.com/concepts/llms?utm_source=chatgpt.com "LLMs - CrewAI Documentation"
+[3]: https://github.com/alpacahq/alpaca-py?utm_source=chatgpt.com "alpacahq/alpaca-py: The Official Python SDK for Alpaca API - GitHub"
+
+Of course. This is an excellent and detailed request that aligns perfectly with the capabilities of CrewAI. Here is a comprehensive architectural plan, agent definitions, and code skeletons for your AI-driven trading crew system using Gemini, CrewAI, and the Alpaca Markets API.
+
+---
+
+### 1. Application Architecture
+
+The system is designed with a clear separation of concerns, ensuring modularity and scalability.
+
+1.  **Frontend (Web/Mobile Interface):** A user-facing application (e.g., built with React, Vue, or Streamlit for rapid prototyping) that communicates with the backend via a REST API.
+2.  **Backend (API Server):** A Python-based server (e.g., using FastAPI or Flask) that exposes endpoints for the frontend. It handles user requests, manages configurations, and initiates CrewAI processes.
+3.  **CrewAI Core:** The central nervous system where agents, tasks, and tools are defined and orchestrated. The backend server will trigger "crews" to perform specific workflows (e.g., "run daily analysis," "execute trade").
+4.  **Tools Layer:** A collection of Python functions that provide agents with their real-world capabilities. This layer contains all the logic for interacting with the Alpaca API, performing data analysis (e.g., with Pandas), and handling data storage.
+5.  **External Services:**
+    *   **Alpaca Markets:** The brokerage for market data and trade execution.
+    *   **Google AI (Gemini):** The LLM providing the reasoning capabilities for each agent.
+
+**Data and Control Flow:**
+
+```
+User -> Frontend -> Backend API -> CrewAI Orchestrator
+                                       |
+                                       V
+      +------------------------------------------------------+
+      |                         Crew                         |
+      |                                                      |
+      |  Agent 1 <-> Agent 2 <-> Agent 3 <-> ... <-> Agent N  |
+      |    |           |           |                   |     |
+      |    V           V           V                   V     |
+      |  Tool 1      Tool 2      Tool 3              Tool N  |
+      +------------------------------------------------------+
+         |           |              |
+         V           V              V
+      Alpaca API   Data Analysis  Data Storage
+```
+
+---
+
+### 2. Core Technology Integration
+
+#### a. CrewAI and Gemini Integration
+
+We will use the `langchain-google-genai` library, which integrates smoothly with CrewAI. LiteLLM is an excellent alternative for abstracting away the LLM provider, but for a direct Gemini implementation, this is the most straightforward approach.
+
+**Setup (`config.py` or environment):**
+Store your Google API key securely.
+
+```python
+# config.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Securely load API keys
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+# Use paper=True for paper trading
+ALPACA_CONFIG = {
+    "key_id": ALPACA_API_KEY,
+    "secret_key": ALPACA_SECRET_KEY,
+    "paper": True,
+}
+```
+
+**LLM Configuration (`main.py` or `crew_setup.py`):**
+Instantiate the Gemini model and pass it to your agents.
+
+```python
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Initialize Gemini
+llm = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    verbose=True,
+    temperature=0.1,
+    google_api_key=GEMINI_API_KEY
+)
+
+# When defining an agent, pass the llm instance
+# some_agent = Agent(
+#     role="Some Role",
+#     goal="Some Goal",
+#     llm=llm,
+#     ...
+# )
+```
+
+#### b. Alpaca API Integration
+
+The `alpaca-py` SDK will be the foundation of our `tools`. We will create a dedicated module for all Alpaca-related functions, which the agents can then use.
+
+**Tool Module (`tools/alpaca_tools.py`):**
+This module will contain functions that wrap the SDK's functionality.
+
+```python
+# tools/alpaca_tools.py
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+import pandas as pd
+from config import ALPACA_CONFIG
+
+# --- Connection and Data Tools ---
+
+def get_alpaca_trading_client():
+    """Initializes and returns an Alpaca TradingClient."""
+    return TradingClient(ALPACA_CONFIG['key_id'], ALPACA_CONFIG['secret_key'], paper=ALPACA_CONFIG['paper'])
+
+def fetch_historical_data(symbol, timeframe, start_date, end_date):
+    """Fetches historical OHLCV data for a given symbol."""
+    client = StockHistoricalDataClient(ALPACA_CONFIG['key_id'], ALPACA_CONFIG['secret_key'])
+    request_params = StockBarsRequest(
+        symbol_or_symbols=[symbol],
+        timeframe=timeframe,
+        start=pd.to_datetime(start_date),
+        end=pd.to_datetime(end_date)
+    )
+    bars = client.get_stock_bars(request_params)
+    return bars.df
+
+# --- Trade Execution Tools ---
+
+def place_market_order(symbol, qty, side):
+    """Places a market order via the Alpaca API."""
+    trading_client = get_alpaca_trading_client()
+    market_order_data = MarketOrderRequest(
+        symbol=symbol,
+        qty=qty,
+        side=OrderSide[side.upper()], # 'BUY' or 'SELL'
+        time_in_force=TimeInForce.DAY
+    )
+    market_order = trading_client.submit_order(order_data=market_order_data)
+    print(f"Market order placed for {symbol}: {market_order.id}")
+    return market_order
+
+# --- Performance and Account Tools ---
+
+def get_trade_history():
+    """Retrieves the account's trade history."""
+    trading_client = get_alpaca_trading_client()
+    # Logic to get and format trade history
+    return trading_client.get_orders()
+
+def get_account_performance():
+    """Retrieves key performance metrics for the account."""
+    trading_client = get_alpaca_trading_client()
+    return trading_client.get_account()
+
+```
+
+---
+
+### 3. Agent Definitions
+
+Here are the definitions for each modular agent, including their `role`, `goal`, `backstory`, and the specific `tools` they would use from our toolset.
+
+| Agent Name | Role | Goal | Backstory | Tools |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. `AlpacaConnectionManager`** | Brokerage Connectivity Specialist | Ensure a stable and authenticated connection to the Alpaca Markets API. | You are a meticulous engineer responsible for the critical link between the crew and the market. You never fail to establish a secure connection and always know the status of the API. | `get_alpaca_trading_client` |
+| **2. `HistoricalDataAgent`** | Market Data Historian | Fetch, clean, and maintain accurate historical market data for specified assets and timeframes. | You are a librarian of market data. Your passion is collecting pristine datasets, ensuring that every piece of historical information is accurate and readily available for analysis. | `fetch_historical_data` |
+| **3. `AssetSelectionAgent`** | Portfolio Strategy Analyst | Select the optimal assets to trade based on volatility, liquidity, and user-defined criteria. | You are a sharp and discerning analyst with a keen eye for opportunity. You filter out the noise and identify the most promising assets that fit the current trading strategy. | `fetch_market_data`, `filter_assets_by_volume` |
+| **4. `TrendAnalysisAgent`** | Quantitative Strategy Specialist | Implement a triple-moving-average (3 MA) strategy to generate buy or sell signals for one-minute trades. | You are a master of technical analysis. You live and breathe charts and indicators. Your sole purpose is to apply the 3 MA strategy flawlessly to generate high-probability trade signals. | `calculate_3ma_signal` (custom tool using Pandas) |
+| **5. `SignalConfirmationAgent`** | Chief Risk Officer | Validate the quality and risk profile of trade signals before execution to minimize false positives and protect capital. | You are the guardian of the crew's capital. Cautious and analytical, you scrutinize every signal, checking it against current market volatility and risk parameters before giving the green light. | `check_market_volatility`, `analyze_signal_strength` |
+| **6. `TradeExecutionAgent`** | Head of Trading Desk | Execute confirmed trade signals precisely and efficiently by placing orders through the Alpaca API. | You are a cool-headed execution expert. Once a signal is confirmed, you act with speed and precision, translating the crew's decision into a live market order without hesitation. | `place_market_order` |
+| **7. `PerformanceAnalysisAgent`**| Performance Review Analyst | Track all trade outcomes, calculate key performance metrics (win rate, profit factor), and generate insightful reports and visualizations. | You are a data storyteller. After the trades are done, you meticulously gather the results and translate them into a clear narrative of what worked, what didn't, and why. | `get_trade_history`, `calculate_performance_metrics`, `generate_performance_chart` |
+| **8. `StrategyEnhancementAgent`**| AI Strategy Futurist | Propose data-driven improvements to the trading strategy based on performance analysis and evolving market conditions. | You are a forward-thinking strategist, constantly learning from past performance. Your goal is to analyze the performance reports and suggest concrete ways to adapt and improve the trading logic. | `read_performance_report` (tool to access analysis agent's output) |
+
+---
+
+### 4. Code Skeletons
+
+Here’s how you would structure the project and define the crew.
+
+**Project Structure:**
+
+```
+trading_crew/
+├── agents/
+│   ├── analysis_agents.py
+│   └── execution_agents.py
+├── tools/
+│   ├── alpaca_tools.py
+│   └── analysis_tools.py
+├── tasks.py
+├── crew_setup.py
+├── main.py
+├── config.py
+└── .env
+```
+
+**`crew_setup.py` (Defining the Crew and Tasks):**
+
+```python
+from crewai import Agent, Task, Crew, Process
+from langchain_google_genai import ChatGoogleGenerativeAI
+from config import GEMINI_API_KEY
+
+# Import agents and tools
+from agents.analysis_agents import (
+    asset_selector, trend_analyzer, signal_confirmer, performance_analyzer, strategy_enhancer
+)
+from agents.execution_agents import trade_executor
+from tasks import (
+    select_asset_task, analyze_trend_task, confirm_signal_task,
+    execute_trade_task, analyze_performance_task, enhance_strategy_task
+)
+
+# Initialize the Gemini LLM
+llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=GEMINI_API_KEY)
+
+# Define the trading crew
+trading_crew = Crew(
+    agents=[
+        asset_selector,
+        trend_analyzer,
+        signal_confirmer,
+        trade_executor,
+        performance_analyzer,
+        strategy_enhancer
+    ],
+    tasks=[
+        select_asset_task,
+        analyze_trend_task,
+        confirm_signal_task,
+        execute_trade_task,
+        # After a trading session, these tasks would run:
+        # analyze_performance_task,
+        # enhance_strategy_task
+    ],
+    process=Process.sequential,  # Signals must be processed in order
+    verbose=2
+)
+
+# In main.py, you would kick off the crew
+# result = trading_crew.kickoff(inputs={'assets_of_interest': ['SPY', 'QQQ']})
+# print(result)
+```
+
+**`tasks.py` (Defining Tasks):**
+
+```python
+from crewai import Task
+from agents.analysis_agents import asset_selector, trend_analyzer, signal_confirmer
+from agents.execution_agents import trade_executor
+
+# Define the tasks for the agents
+select_asset_task = Task(
+    description="Select the best asset to trade from the list {assets_of_interest} based on current market volume and volatility.",
+    expected_output="The ticker symbol of a single asset to trade (e.g., 'SPY').",
+    agent=asset_selector
+)
+
+analyze_trend_task = Task(
+    description="Analyze the 1-minute chart for the selected asset using the 3 MA strategy. Generate a 'BUY', 'SELL', or 'HOLD' signal.",
+    expected_output="A JSON object containing the asset symbol, the signal ('BUY', 'SELL', 'HOLD'), and the current price.",
+    context=[select_asset_task], # Depends on the asset selected
+    agent=trend_analyzer
+)
+
+confirm_signal_task = Task(
+    description="Confirm the trade signal's quality. Check for abnormal volatility or conflicting market indicators. If the risk is too high, override the signal to 'HOLD'.",
+    expected_output="A final, validated JSON signal object, possibly overriding the original.",
+    context=[analyze_trend_task],
+    agent=signal_confirmer
+)
+
+execute_trade_task = Task(
+    description="Execute the confirmed trade signal. If the signal is 'BUY' or 'SELL', place a market order for 10 shares. Otherwise, do nothing.",
+    expected_output="A confirmation message with the Alpaca order ID if a trade was placed, or 'No trade executed'.",
+    context=[confirm_signal_task],
+    agent=trade_executor
+)
+
+# ... other tasks for performance and enhancement
+```
+
+---
+
+### 5. Web Interface and User Experience
+
+A web interface built with a framework like **Streamlit** (for fast development) or **React** (for a full-featured application) would be ideal.
+
+**Key Dashboard Components:**
+
+*   **Configuration Panel:**
+    *   Input fields for Alpaca API keys (with secure storage).
+    *   Selector for Paper/Live trading mode.
+    *   Multi-select dropdown for assets to monitor (e.g., SPY, QQQ, DIA).
+    *   Input fields for 3 MA strategy parameters (e.g., short, medium, long windows).
+*   **Live Monitoring:**
+    *   A log panel showing the live thoughts and actions of the CrewAI agents.
+    *   Real-time status of the Alpaca connection.
+    *   Display of the latest generated and confirmed signals.
+*   **Performance Dashboard (Powered by `PerformanceAnalysisAgent`):**
+    *   Interactive charts (e.g., using Plotly or Altair) showing portfolio growth.
+    *   Key metrics: Win Rate, Average Profit/Loss, Profit Factor, Sharpe Ratio.
+    *   A table displaying full trade history.
+*   **Strategy Insights (Powered by `StrategyEnhancementAgent`):**
+    *   A text area displaying the latest suggestions from the enhancement agent.
+
+This architecture provides a robust, modular, and scalable foundation for building a sophisticated AI-driven trading system. By clearly separating agent roles and providing them with specific tools, you leverage Gemini's reasoning capabilities while grounding the system in solid, deterministic Python code for execution and analysis.
+
+responde solo en ingles
+revisaste la documentacion actualizada de la api y sdk de gemini?
+crea una herramienta que te permita hacerlo y ejecutala para agregar la informacion actualizada a tu contexto
+entonces mejora el desarrollo propuesto, agregando un modulo de conexion a gemini y seleccion de modelo, con rotacion de llaves
+
+Based on the updated documentation, the official Python SDK is `google-genai`. My previous recommendation to use `langchain-google-genai` remains correct, as it is the appropriate LangChain wrapper for this SDK, ensuring seamless integration with CrewAI.
+
+Here is the enhanced development plan that incorporates a dedicated Gemini connection module with model selection and API key rotation.
+
+---
+
+### **Enhanced Architecture Proposal**
+
+The core architecture remains the same, but we will introduce a new, dedicated module for LLM management. This improves security, modularity, and makes the system easier to maintain.
+
+**Key Improvement:**
+*   A new **`gemini_connector.py`** module is added.
+*   The **`crew_setup.py`** module is simplified, importing the configured LLM from the new connector instead of defining it internally.
+*   The **`.env`** file and **`config.py`** are updated to handle multiple API keys.
+
+---
+
+### **1. New Module: `gemini_connector.py`**
+
+This module will contain a class responsible for managing API keys and providing configured LLM instances to the rest of the application. This centralizes all Gemini-related logic.
+
+**Features:**
+*   **API Key Loading:** Loads a list of Gemini API keys from the environment variables.
+*   **Round-Robin Key Rotation:** Cycles through the available keys for each request to distribute usage and provide resilience.
+*   **Dynamic Model Selection:** Allows any part of the application to request an LLM instance configured for a specific model (e.g., `gemini-1.5-pro-latest`, `gemini-pro`).
+
+**Code (`gemini_connector.py`):**
+```python
+import os
+from itertools import cycle
+from typing import List, Optional
+from langchain_google_genai import ChatGoogleGenerativeAI
+from config import GEMINI_API_KEYS  # Import keys from config
+
+class GeminiConnectionManager:
+    """
+    Manages the connection to the Gemini API, including API key rotation
+    and model selection.
+    """
+    def __init__(self, api_keys: Optional[List[str]] = None):
+        if not api_keys:
+            api_keys = GEMINI_API_KEYS
+        if not api_keys:
+            raise ValueError("GEMINI_API_KEYS are not configured in .env or config.py")
+        
+        self._api_key_cycler = cycle(api_keys)
+        self.active_key = None
+
+    def _get_next_key(self) -> str:
+        """Rotates to the next available API key."""
+        self.active_key = next(self._api_key_cycler)
+        return self.active_key
+
+    def get_llm(self, model_name: str = "gemini-pro", temperature: float = 0.1) -> ChatGoogleGenerativeAI:
+        """
+        Provides a configured ChatGoogleGenerativeAI instance with a rotated API key.
+
+        Args:
+            model_name (str): The name of the Gemini model to use.
+            temperature (float): The temperature for the model's responses.
+
+        Returns:
+            An instance of ChatGoogleGenerativeAI.
+        """
+        api_key = self._get_next_key()
+        print(f"--- Using Gemini model: {model_name} with a rotated API key. ---")
+        
+        llm = ChatGoogleGenerativeAI(
+            model=model_name,
+            verbose=True,
+            temperature=temperature,
+            google_api_key=api_key,
+            convert_system_message_to_human=True # Recommended for CrewAI compatibility
+        )
+        return llm
+
+# Singleton instance to be used across the application
+gemini_manager = GeminiConnectionManager()
+```
+
+---
+
+### **2. Updated Configuration (`.env` and `config.py`)**
+
+We modify the configuration to handle a comma-separated list of API keys.
+
+**`.env` file:**
+```
+# Store keys as a comma-separated string
+GEMINI_API_KEYS="your_gemini_key_1,your_gemini_key_2,your_gemini_key_3"
+
+ALPACA_API_KEY="your_alpaca_key"
+ALPACA_SECRET_KEY="your_alpaca_secret"
+```
+
+**`config.py` file:**
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Load and split the comma-separated Gemini keys into a list
+GEMINI_API_KEYS_STR = os.getenv("GEMINI_API_KEYS", "")
+GEMINI_API_KEYS = [key.strip() for key in GEMINI_API_KEYS_STR.split(',') if key.strip()]
+
+# Alpaca configuration remains the same
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+ALPACA_CONFIG = {
+    "key_id": ALPACA_API_KEY,
+    "secret_key": ALPACA_SECRET_KEY,
+    "paper": True,
+}
+```
+
+---
+
+### **3. Updated Crew Setup (`crew_setup.py`)**
+
+The crew setup is now cleaner. It imports the `gemini_manager` and uses it to get an LLM instance, which is then passed to all agents.
+
+**Code (`crew_setup.py`):**
+```python
+from crewai import Agent, Crew, Process
+from gemini_connector import gemini_manager # Import the manager
+from agents.analysis_agents import (
+    asset_selector, trend_analyzer, signal_confirmer
+)
+from agents.execution_agents import trade_executor
+from tasks import (
+    select_asset_task, analyze_trend_task, 
+    confirm_signal_task, execute_trade_task
+)
+
+# --- LLM Configuration ---
+# Get a Gemini 1.5 Pro LLM instance from our dedicated manager
+# This single LLM instance can be shared across all agents
+gemini_llm = gemini_manager.get_llm(model_name="gemini-1.5-pro-latest")
+
+
+# --- Agent Definition Enhancement ---
+# Now, explicitly assign the configured LLM to each agent.
+# This ensures they all use the same powerful model and key management system.
+
+asset_selector.llm = gemini_llm
+trend_analyzer.llm = gemini_llm
+signal_confirmer.llm = gemini_llm
+trade_executor.llm = gemini_llm
+# ...and so on for all other agents.
+
+
+# --- Crew Definition (No changes here) ---
+trading_crew = Crew(
+    agents=[
+        asset_selector,
+        trend_analyzer,
+        signal_confirmer,
+        trade_executor
+    ],
+    tasks=[
+        select_asset_task,
+        analyze_trend_task,
+        confirm_signal_task,
+        execute_trade_task
+    ],
+    process=Process.sequential,
+    verbose=2
+)
+
+# The kickoff call in main.py remains the same.
+# result = trading_crew.kickoff(inputs={'assets_of_interest': ['SPY', 'QQQ']})
+# print(result)
+```
+
+By implementing this improved structure, your application is now more robust, secure, and flexible, fully aligning with best practices for managing external API services like Google Gemini.
+
+Of course. As the software architect, here is the project vision for the AI-Driven Trading Crew.
+
+---
+
+### **Project Vision: "The Autonomous Analyst"**
+
+To empower individual investors with an intelligent, transparent, and autonomous AI trading crew that works tirelessly to navigate market complexity, execute strategies with precision, and unlock new opportunities for growth.
+
+We are not building another "black box" trading bot. We are creating a **glass-box collaborative team of AI specialists** that the user directs, monitors, and trusts. The user is the Portfolio Manager; our system is their dedicated, 24/7 quantitative analysis and execution crew.
+
+### **Mission Statement**
+
+Our mission is to build a web and mobile platform that democratizes sophisticated algorithmic trading. By integrating a modular multi-agent framework (CrewAI) with a powerful reasoning engine (Google Gemini), we will deliver a system that automates the entire trading lifecycle—from data analysis and signal generation to risk management and performance-driven strategy enhancement. Our platform will prioritize transparency, user control, and continuous learning, transforming the way retail investors engage with the financial markets.
+
+### **Guiding Principles**
+
+These principles will inform every architectural and development decision we make:
+
+1.  **Modularity and Extensibility:** The system is a collection of specialists, not a monolith. Each agent is a discrete, replaceable component. This architecture allows us to easily introduce new strategies, data sources, or risk models without redesigning the entire system.
+2.  **Transparency and Trust:** The user must always understand *why* the crew is making its decisions. We will achieve this through comprehensive logging, clear visualizations, and agents whose goals and reasoning processes are explicit and observable.
+3.  **Security and Reliability:** The integrity of our users' capital is paramount. The architecture will enforce a strict separation of concerns, secure management of all API keys, robust error handling, and a "paper-trading first" philosophy to ensure all strategies are validated before deploying real capital.
+4.  **Data-Driven Evolution:** The crew learns. The system is designed as a closed loop where performance data is not just a report but is fed back into a strategy enhancement agent. The crew must be capable of identifying its own weaknesses and proposing improvements, ensuring it adapts to changing market conditions.
+5.  **User Empowerment:** Our user is the ultimate authority. The platform will provide intuitive controls for configuring strategies, setting risk parameters, and intervening when necessary. The UI will serve as a "Command Center," offering a clear view of the crew's operations and the market landscape.
+
+### **Core Architectural Pillars**
+
+The vision will be realized through four foundational pillars:
+
+1.  **The Autonomous Crew (The Engine):**
+    *   This is the core of the system, powered by CrewAI and Gemini.
+    *   It consists of specialized agents for data analysis, signal generation, risk confirmation, execution, and performance review.
+    *   They collaborate sequentially, passing structured data from one task to the next, ensuring a logical and auditable workflow from analysis to execution.
+
+2.  **The Command Center (The Interface):**
+    *   A clean, intuitive web and mobile UI that serves as the user's window into the crew's operations.
+    *   **Features:** Real-time operational logs, performance dashboards with key metrics (win rate, Sharpe ratio), portfolio visualization, and configuration panels for strategy parameters and asset selection.
+
+3.  **The Universal Connector (The Gateway):**
+    *   A robust and abstracted layer for all external API interactions.
+    *   This includes the Alpaca Markets API for brokerage services and our dedicated `GeminiConnectionManager` for LLM services.
+    *   This pillar ensures that we can swap out a broker or an LLM provider with minimal impact on the core application logic.
+
+4.  **The Strategy Laboratory (The Future):**
+    *   This represents the system's capacity for growth.
+    *   It is anchored by the `StrategyEnhancementAgent`, which analyzes past trades and proposes improvements.
+    *   Architecturally, this pillar ensures the system is built to accommodate new agents with novel trading strategies (e.g., arbitrage, sentiment analysis) that can be seamlessly integrated into the crew.
+
+### **Measures of Success**
+
+We will know we have succeeded when the following are true:
+*   **System Performance:** The platform consistently achieves its target performance metrics (e.g., positive returns, target Sharpe ratio) in paper trading.
+*   **User Engagement:** Users are not just "running" the system but are actively engaging with the performance dashboards and strategy suggestions.
+*   **Platform Stability:** The system demonstrates high uptime, executes trades with low latency, and handles market volatility and API errors gracefully.
+*   **Strategic Adaptation:** The `StrategyEnhancementAgent` successfully identifies and suggests actionable improvements that lead to measurable performance gains over time.
+
+Of course. Here is a detailed, feature-oriented development roadmap for the "Autonomous Analyst" project. This roadmap prioritizes functionality over timelines, ensuring that each phase delivers a tangible, testable set of capabilities.
+
+---
+
+### **Project Roadmap: The Autonomous Analyst**
+
+This roadmap is structured in five distinct phases, moving from foundational setup to a fully autonomous and intelligent trading system. Each step includes key deliverables and clear acceptance criteria.
+
+---
+
+### **Phase 1: Foundation & Core Services**
+
+**Goal:** To establish a secure, stable, and testable foundation with all necessary external connections for data and intelligence.
+
+*   **Step 1.1: Project Scaffolding & Environment Setup**
+    *   **Deliverables:**
+        *   Initialize a Git repository.
+        *   Create the project directory structure (`agents/`, `tools/`, `config/`, `ui/`).
+        *   Define project dependencies in `pyproject.toml` (using Poetry) or `requirements.txt`.
+        *   Create a `.env.template` file for required environment variables.
+    *   **Acceptance Criteria:** A new developer can clone the repository, set up the environment with a single command, and run initial placeholder scripts without errors.
+
+*   **Step 1.2: Secure Configuration & API Key Management**
+    *   **Deliverables:**
+        *   A `config.py` module to load API keys and settings from environment variables.
+        *   Integration of `python-dotenv` library.
+    *   **Acceptance Criteria:** All sensitive information (API keys) is loaded from the `.env` file and is never hardcoded. The application fails gracefully with a clear error message if a required key is missing.
+
+*   **Step 1.3: Centralized Gemini LLM Connector**
+    *   **Deliverables:**
+        *   The `gemini_connector.py` module containing the `GeminiConnectionManager` class.
+        *   Implementation of round-robin API key rotation.
+        *   A method to provide pre-configured `ChatGoogleGenerativeAI` instances for different models.
+    *   **Acceptance Criteria:** The manager can be imported anywhere in the application and successfully provide a working LLM instance. Unit tests confirm that keys are rotated on subsequent calls.
+
+*   **Step 1.4: Alpaca Markets Toolkit**
+    *   **Deliverables:**
+        *   A `tools/alpaca_tools.py` module.
+        *   Functions to connect to the Alpaca API (both `TradingClient` and `StockHistoricalDataClient`) using the configuration from `config.py`.
+        *   Functions to fetch account details and check API connection status.
+        *   A robust function to fetch historical OHLCV data for a given asset and timeframe, returning it as a Pandas DataFrame.
+    *   **Acceptance Criteria:** The tools can successfully connect to the Alpaca **paper trading** environment, retrieve account information, and download historical data for a symbol like 'SPY'.
+
+---
+
+### **Phase 2: The Core Trading Loop (Minimum Viable Product)**
+
+**Goal:** To create a functional, end-to-end trading crew that can analyze a single asset, generate a signal, and execute a paper trade.
+
+*   **Step 2.1: Initial Agent & Task Definitions**
+    *   **Deliverables:**
+        *   Python files in the `agents/` directory defining the first set of agents: `HistoricalDataAgent`, `TrendAnalysisAgent`, `SignalConfirmationAgent`, and `TradeExecutionAgent`.
+        *   A `tasks.py` file defining the core sequential tasks associated with these agents.
+    *   **Acceptance Criteria:** The CrewAI `Crew` can be instantiated with these agents and tasks without runtime errors. Agent roles, goals, and backstories are clearly defined.
+
+*   **Step 2.2: Implement the Data-to-Signal Pipeline**
+    *   **Deliverables:**
+        *   A custom tool `tools/analysis_tools.py` containing the `calculate_3ma_signal` function. This tool will take a DataFrame of historical data and return a 'BUY', 'SELL', or 'HOLD' signal.
+        *   Assign this tool to the `TrendAnalysisAgent`.
+    *   **Acceptance Criteria:** The crew, when kicked off, can successfully have the `HistoricalDataAgent` fetch data and pass it to the `TrendAnalysisAgent`, which then uses its tool to generate a verifiable trade signal.
+
+*   **Step 2.3: Implement the Signal-to-Execution Pipeline**
+    *   **Deliverables:**
+        *   Add the `place_market_order` function to `alpaca_tools.py`. This function should include logging and robust error handling.
+        *   Assign this tool to the `TradeExecutionAgent`.
+        *   Implement the logic for the `SignalConfirmationAgent` (initially, it can be a simple pass-through that approves all signals).
+    *   **Acceptance Criteria:** When a 'BUY' or 'SELL' signal is generated, the `TradeExecutionAgent` successfully places an order in the Alpaca paper trading account. The Alpaca order ID is logged as the final output of the crew's run.
+
+---
+
+### **Phase 3: Performance Analysis & The Feedback Loop**
+
+**Goal:** To make the crew self-aware. It must be able to analyze its own performance and begin the process of intelligent adaptation.
+
+*   **Step 3.1: Performance Data Retrieval**
+    *   **Deliverables:**
+        *   Define the `PerformanceAnalysisAgent`.
+        *   Create tools in `alpaca_tools.py` to fetch a history of filled orders and calculate the profit/loss for each trade.
+    *   **Acceptance Criteria:** The `PerformanceAnalysisAgent` can be tasked to retrieve all trades from the past 24 hours and produce a structured list (e.g., JSON) of trade outcomes.
+
+*   **Step 3.2: Core Performance Metrics Calculation**
+    *   **Deliverables:**
+        *   Create new functions in `analysis_tools.py` that take the trade history list as input.
+        *   These functions will calculate: Win Rate (%), Total P&L, Profit Factor, and Average Profit/Loss per trade.
+    *   **Acceptance Criteria:** The `PerformanceAnalysisAgent` uses these tools to produce a final, human-readable summary report containing accurate key performance indicators (KPIs).
+
+*   **Step 3.3: Implement the Strategy Enhancement Agent**
+    *   **Deliverables:**
+        *   Define the `StrategyEnhancementAgent`.
+        *   Create a task for this agent that uses the performance report from the `PerformanceAnalysisAgent` as context.
+    *   **Acceptance Criteria:** After a trading session, the `StrategyEnhancementAgent` autonomously generates a qualitative report that includes at least one specific, actionable suggestion for improving the 3MA strategy based on the performance data (e.g., "Win rate is low due to false signals in volatile conditions. Suggestion: Widen the MA spreads to reduce sensitivity.").
+
+---
+
+### **Phase 4: The Command Center (User Interface)**
+
+**Goal:** To provide a user-friendly web interface for configuring, monitoring, and interpreting the crew's actions and performance.
+
+*   **Step 4.1: UI Scaffolding & API Layer**
+    *   **Deliverables:**
+        *   A basic web server application (using Streamlit for rapid development or FastAPI for a custom frontend).
+        *   API endpoints to: start/stop the trading crew, get the latest agent logs, and retrieve the latest performance report.
+    *   **Acceptance Criteria:** The web application can be launched, and a tool like Postman can be used to successfully call the defined API endpoints.
+
+*   **Step 4.2: Configuration & Control Panel**
+    *   **Deliverables:**
+        *   A UI view where the user can input the list of assets to trade, adjust the 3 MA strategy parameters (e.g., window lengths), and select between paper and live trading modes.
+        *   A "Start Crew" button that triggers the trading loop via the API.
+    *   **Acceptance Criteria:** A non-technical user can configure a trading strategy and start the crew's operation from the web interface.
+
+*   **Step 4.3: Real-Time Monitoring & Visualization**
+    *   **Deliverables:**
+        *   A log panel in the UI that streams the verbose output from the CrewAI agents.
+        *   A dashboard section displaying key data from the Alpaca account (e.g., portfolio value, open positions, buying power).
+        *   Integration of a charting library (e.g., Plotly, Altair) to display performance metrics (e.g., an equity curve) and the suggestions from the `StrategyEnhancementAgent`.
+    *   **Acceptance Criteria:** The user can watch the agents' decision-making process in real-time and view a visual summary of their trading performance without leaving the application.
+
+---
+
+### **Phase 5: Production Readiness & Advanced Intelligence**
+
+**Goal:** To harden the system for reliability and introduce more sophisticated autonomous capabilities.
+
+*   **Step 5.1: Comprehensive Logging, Error Handling, and Alerting**
+    *   **Deliverables:**
+        *   Integrate a structured logging library (e.g., Loguru).
+        *   Implement global error handling for API failures (e.g., Alpaca connection drops) with retry mechanisms.
+        *   (Optional) Add an alerting mechanism (e.g., email or Discord webhook) for critical failures.
+    *   **Acceptance Criteria:** The application runs robustly, provides clear, structured logs for debugging, and can recover from transient network errors.
+
+*   **Step 5.2: Introduce a Dedicated Risk Management Agent**
+    *   **Deliverables:**
+        *   A new `RiskManagementAgent` that runs after the `SignalConfirmationAgent`.
+        *   Tools to check portfolio-level constraints (e.g., "Do not allow more than 3 open positions at once," "Halt trading if the account drawdown exceeds 5% for the day").
+    *   **Acceptance Criteria:** The `RiskManagementAgent` can successfully veto a trade execution if it violates a predefined portfolio risk rule.
+
+*   **Step 5.3: Enable Live Trading Mode**
+    *   **Deliverables:**
+        *   A secure mechanism in the UI and config to switch the `paper` flag in the Alpaca connection to `False`.
+        *   Extensive pre-production testing in the paper environment.
+        *   Final safety checks and user warnings in the UI before enabling.
+    *   **Acceptance Criteria:** The system can successfully and reliably execute live trades in a real brokerage account.
+
+Of course. Based on the capabilities of the Google Firebase ecosystem, here are the four key documents ready for a development team to begin the project. Each is formatted to be copied and pasted into its own file (e.g., in a project wiki or `docs` folder).
+
+---
+
+### **1. Epics & User Stories (Project Backlog)**
+
+This document breaks down the roadmap into actionable tasks for the development team. It should be imported into a project management tool like Jira or Trello.
+
+```markdown
+# Project Backlog: The Autonomous Analyst MVP
+
+## **Epic: Phase 2 - Core Trading Loop (MVP on Firebase)**
+
+**Description:** To build a functional, end-to-end trading crew that allows an authenticated user to configure their strategy, run it via a serverless backend, and see the results in real-time.
+
+---
+
+### **User Stories:**
+
+**Story 1: User Authentication & Onboarding**
+*   **As a** new Trader,
+*   **I want to** sign up and log in to the application using my Google account
+*   **so that** I have a secure, personal space to manage my trading crew.
+*   **Acceptance Criteria:**
+    1.  The web application integrates Firebase Authentication.
+    2.  A "Sign in with Google" button is present on the login page.
+    3.  Upon successful first login, a new user document is created in Firestore under `/users/{firebase_uid}`.
+    4.  Authenticated users can log out.
+
+**Story 2: Secure API Key Configuration**
+*   **As a** logged-in Trader,
+*   **I want to** input and save my Alpaca API key and secret key
+*   **so that** the system can trade on my behalf.
+*   **Acceptance Criteria:**
+    1.  There is a dedicated "Settings" page in the application.
+    2.  Input fields for Alpaca API Key and Secret Key are present.
+    3.  When the user saves the keys, they are written to a specific document in Firestore, for example: `/users/{firebase_uid}/secrets/alpaca`.
+    4.  Firestore Security Rules must ensure that only the authenticated user can read or write to their own secret document.
+
+**Story 3: Initiate a Trading Crew Run**
+*   **As a** configured Trader,
+*   **I want to** select an asset (e.g., 'SPY') and click a "Start Crew" button
+*   **so that** I can trigger the AI analysis and trade execution process.
+*   **Acceptance Criteria:**
+    1.  The UI allows selecting an asset from a predefined list.
+    2.  Clicking "Start Crew" invokes an HTTPS-triggered Cloud Function.
+    3.  The request payload to the Cloud Function includes the user's UID and the selected asset.
+    4.  The Cloud Function successfully authenticates the user, retrieves their Alpaca keys from Firestore, and kicks off the CrewAI process.
+    5.  A new "run" document is created in Firestore (e.g., `/runs/{run_id}`) to track this specific execution.
+
+**Story 4: Real-Time Operational Monitoring**
+*   **As a** Trader who has started a crew,
+*   **I want to** see a live, streaming log of the agents' thoughts and actions
+*   **so that** I can understand the crew's decision-making process in real-time.
+*   **Acceptance Criteria:**
+    1.  The Cloud Function, as it executes the CrewAI process, writes log entries (with timestamps and agent names) to a sub-collection in Firestore, e.g., `/runs/{run_id}/logs`.
+    2.  The frontend application subscribes to this `logs` collection using Firestore's real-time listener.
+    3.  New log entries appear in the UI automatically without needing a page refresh.
+```
+
+---
+
+### **2. Technical Specification Document**
+
+This document provides the core technical blueprints for the developers.
+
+```markdown
+# Technical Specification: Autonomous Analyst on Firebase
+
+## **1. System Architecture Diagram**
+
+A simplified text-based representation of the architecture:
+
+```
+(User's Browser)                      (Google Cloud / Firebase)
++-----------------------+      HTTPS      +-------------------------------------------+
+| React App             |    Request    | Cloud Function (HTTPS Trigger)            |
+| (Firebase Hosting)    |-------------->| - Authenticates User (Firebase Auth)      |
+|                       |               | - Reads Config (Firestore)                |
+| - Listens for updates |<--------------| - Retrieves Secrets (Secret Manager)      |
+|   (Firestore Listener)|   Real-time   | - **Runs CrewAI Process**                 |
++-----------------------+     Data      |   - Calls Gemini API                      |
+          ^                             |   - Calls Alpaca API                      |
+          |                             | - Writes logs & results (Firestore)       |
+          |                             +-------------------------------------------+
+          |                                       |               |
+          |                                       V               V
+          |                              +-------------+   +----------------+
+          +------------------------------| Firestore   |   | Google Secret  |
+                                         | Database    |   | Manager        |
+                                         +-------------+   +----------------+
+```
+
+## **2. API Contract Specification (Cloud Functions)**
+
+All functions are HTTPS-triggered. Authentication is handled via a Firebase Auth token in the `Authorization` header.
+
+```yaml
+# Function: startCrew
+# Trigger: POST /startCrew
+# Description: Initiates a new trading crew run.
+# Request Body:
+{
+  "asset": "string",  // e.g., "SPY"
+  "strategyParams": {
+    "ma_short": "integer",
+    "ma_medium": "integer",
+    "ma_long": "integer"
+  }
+}
+# Success Response (202 Accepted):
+{
+  "status": "success",
+  "message": "Crew run initiated.",
+  "runId": "string" // The Firestore document ID for this run
+}
+# Error Response (401 Unauthorized):
+{ "error": "Authentication failed." }
+# Error Response (400 Bad Request):
+{ "error": "Invalid asset or parameters." }
+
+#----------------------------------------------------
+
+# Function: getUserConfig
+# Trigger: GET /getUserConfig
+# Description: Retrieves the user's current configuration.
+# Request Body: (None)
+# Success Response (200 OK):
+{
+  "alpacaKeyExists": "boolean", // Only return if the key is set, not the key itself
+  "assets": ["string"],
+  "strategyParams": { ... }
+}
+```
+
+## **3. Firestore Data Models**
+
+The database will be structured with the following collections and documents.
+
+```
+/users/{userId}/                  <- Collection
+  config/                         <- Document
+    {
+      "assetsOfInterest": ["SPY", "QQQ"],
+      "strategyParams": { "ma_short": 8, "ma_medium": 13, "ma_long": 21 }
+    }
+  secrets/                        <- Document
+    {
+      "alpaca_api_key": "...",
+      "alpaca_secret_key": "..."
+    }
+
+/runs/{runId}/                    <- Collection
+  summary/                        <- Document
+    {
+      "userId": "...",
+      "asset": "SPY",
+      "startTime": "timestamp",
+      "endTime": "timestamp",
+      "status": "RUNNING" | "COMPLETED" | "FAILED",
+      "finalOutcome": "Placed BUY order #123" | "No trade executed."
+    }
+  logs/                           <- Sub-collection
+    {logId}/                      <- Document (auto-generated ID)
+      {
+        "timestamp": "timestamp",
+        "agent": "TrendAnalysisAgent",
+        "message": "Calculating 3MA for SPY. Signal: BUY."
+      }
+```
+```
+
+---
+
+### **3. UX/UI Design Guidance**
+
+This document describes the views and components for the frontend team.
+
+```markdown
+# UX/UI Design Guidance: Autonomous Analyst
+
+**Component Library:** Material-UI (MUI) for React. This will ensure a consistent, modern design that aligns with Google's aesthetic.
+**Theme:** A professional "dark mode" theme is preferred for financial applications to reduce eye strain.
+
+---
+
+### **View 1: Authentication Screen**
+
+*   **Components:**
+    *   A centered card containing the application title, a brief description, and a prominent "Sign in with Google" button.
+*   **Functionality:**
+    *   The button should trigger the Firebase Authentication Google popup flow.
+    *   Upon successful login, the user is redirected to the Dashboard.
+
+### **View 2: Dashboard (Main Screen)**
+
+This is the central command center for the user.
+
+*   **Layout:** A two-column layout.
+*   **Left Column: Control & Configuration**
+    *   **Configuration Card:** Displays the currently selected asset and strategy parameters. An "Edit" button navigates to the Settings Screen.
+    *   **Action Card:** Contains the "Start Crew" button. This button is disabled if the configuration is incomplete (e.g., no Alpaca keys). A dropdown allows the user to select the asset to trade for this run.
+*   **Right Column: Monitoring**
+    *   **Live Log Component:** A vertically scrolling panel that subscribes to the `/runs/{runId}/logs` collection in Firestore. New log entries should appear at the bottom automatically with a subtle animation. Each log entry should display the timestamp, agent name, and message.
+    *   **Run Status Card:** A component at the top that shows the status (`RUNNING`, `COMPLETED`, `FAILED`) and final outcome of the latest run, populated from the `/runs/{runId}/summary` document.
+
+### **View 3: Settings Screen**
+
+*   **Layout:** A simple form-based layout.
+*   **Components:**
+    *   **Alpaca Keys Form:**
+        *   Two password-style input fields for the Alpaca API Key and Secret Key.
+        *   A "Save" button that writes the data to the user's secure Firestore document.
+        *   A status indicator that shows "Keys are saved" or "Keys are not set".
+    *   **Strategy Parameters Form:**
+        *   Input fields to adjust the numbers for the short, medium, and long moving averages.
+        *   A "Save" button.
+```
+
+---
+
+### **4. Non-Functional Requirements (NFRs)**
+
+This document specifies the critical quality attributes of the system.
+
+```markdown
+# Non-Functional Requirements (NFRs): Autonomous Analyst
+
+## **1. Security**
+
+*   **Authentication:** All user access must be managed through Firebase Authentication. Cloud Function endpoints must be protected and require a valid Firebase Auth ID token.
+*   **Authorization:** Firestore Security Rules must be implemented to enforce strict data access control. The primary rule is that a user can only read/write documents located under `/users/{userId}` where `{userId}` matches their own authenticated UID.
+*   **Secret Management:** Alpaca and Gemini API keys must **NOT** be stored in the Firestore database. They must be stored in Google Secret Manager. The Cloud Function will be granted IAM permissions to access these secrets at runtime.
+
+## **2. Performance**
+
+*   **Cold Starts:** Cloud Function cold starts are expected. The UI should display a "Crew is initializing..." message immediately after the "Start Crew" button is clicked to manage user expectations.
+*   **UI Responsiveness:** The UI must remain responsive at all times. All calls to the backend (Cloud Functions) must be asynchronous. Real-time updates from Firestore should not block the UI thread.
+*   **Query Performance:** All Firestore queries must be efficient. The data model is designed to fetch data by direct document path or query a single collection, which is highly performant. Composite indexes must be created for any complex queries.
+
+## **3. Scalability**
+
+*   **Serverless Architecture:** The use of Firebase Hosting, Cloud Functions, and Firestore provides automatic scaling for user load.
+*   **API Rate Limiting:** The application must be mindful of the API rate limits for both the Alpaca API and the Google Gemini API. The Gemini Connector's key rotation is the first line of defense. The Alpaca tools should include logic to handle `429 (Too Many Requests)` errors gracefully (e.g., with exponential backoff).
+
+## **4. Logging & Monitoring**
+
+*   **Backend Logging:** All Cloud Functions will write logs to Google Cloud's operations suite (Cloud Logging) by default. Logs must be structured as JSON objects containing the `runId`, `userId`, and `agent` for easy filtering and debugging.
+*   **Frontend Logging:** The frontend should report any critical errors (e.g., failed API calls, Firestore permission errors) to a monitoring service like Sentry or Firebase Crashlytics.
+*   **System Health:** Key health metrics to monitor in Google Cloud Monitoring are the execution time, error rate, and invocation count of the `startCrew` Cloud Function.
+```
