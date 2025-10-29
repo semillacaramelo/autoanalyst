@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "trading-crew"
+version = "0.1.0"
+description = "AI-driven trading system using CrewAI and Gemini"
+authors = ["AI Developer <ai@example.com>"]
+
+
+[tool.poetry.dependencies]
+python = ">=3.11, <=3.13"
+python-dotenv = "^1.0.0"
+crewai = "^0.80.0"
+crewai-tools = "^0.14.0"
+langchain-google-genai = "^2.0.0"
+google-generativeai = "^0.8.0"
+litellm = "^1.35.2"
+alpaca-py = "^0.32.0"
+pandas = "^2.2.0"
+numpy = "^1.26.0"
+pydantic = "^2.8.0"
+pydantic-settings = "^2.3.0"
+click = "^8.1.7"
+rich = "^13.7.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-cov = "^5.0.0"
+pytest-asyncio = "^0.23.0"
+black = "^24.4.0"
+ruff = "^0.5.0"

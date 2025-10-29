@@ -1,8 +1,0 @@
-crewai
-langchain-google-genai
-python-dotenv
-pandas
-alpaca-py
-litellm
-firebase-admin
-firebase-functions

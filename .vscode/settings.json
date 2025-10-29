@@ -1,8 +1,0 @@
-{
-    "geminicodeassist.agentYoloMode": true,
-    "chat.tools.autoApprove": true,
-    "chat.agent.maxRequests": 1500,
-    "documentationAgent.optOut": true,
-    "agentManagement.securityReview.optOut": true,
-    "IDX.agenticWorkspace": true
-}
