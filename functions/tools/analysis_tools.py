@@ -1,6 +1,6 @@
 import pandas as pd
-from typing import Optional
-
+from typing import Optional, List, Dict, Any
+from tools.alpaca_tools import get_trade_history
 
 def calculate_3ma_signal(
     historical_data: pd.DataFrame,
@@ -24,18 +24,15 @@ def calculate_3ma_signal(
         print(f"Warning: Insufficient data for 3MA calculation. Need at least {long_window} data points.")
         return None
 
-    # Calculate the three moving averages
     try:
         historical_data['ma_short'] = historical_data['close'].rolling(window=short_window).mean()
         historical_data['ma_medium'] = historical_data['close'].rolling(window=medium_window).mean()
         historical_data['ma_long'] = historical_data['close'].rolling(window=long_window).mean()
 
-        # Get the most recent values for each moving average
         last_ma_short = historical_data['ma_short'].iloc[-1]
         last_ma_medium = historical_data['ma_medium'].iloc[-1]
         last_ma_long = historical_data['ma_long'].iloc[-1]
 
-        # Determine the signal
         if last_ma_short > last_ma_medium > last_ma_long:
             return 'BUY'
         elif last_ma_short < last_ma_medium < last_ma_long:
@@ -47,34 +44,43 @@ def calculate_3ma_signal(
         print(f"An error occurred during 3MA calculation: {e}")
         return None
 
-def get_trade_history():
-    """
-    Simulates fetching trade data.
-    """
-    return [
-        {'symbol': 'SPY', 'side': 'buy', 'quantity': 10, 'entry_price': 450.20, 'exit_price': 451.70, 'pnl': 15.00},
-        {'symbol': 'SPY', 'side': 'sell', 'quantity': 10, 'entry_price': 452.00, 'exit_price': 451.50, 'pnl': 5.00},
-        {'symbol': 'SPY', 'side': 'buy', 'quantity': 5, 'entry_price': 449.80, 'exit_price': 450.10, 'pnl': 1.50},
-        {'symbol': 'SPY', 'side': 'buy', 'quantity': 20, 'entry_price': 453.00, 'exit_price': 450.00, 'pnl': -60.00},
-        {'symbol': 'SPY', 'side': 'sell', 'quantity': 15, 'entry_price': 455.00, 'exit_price': 456.00, 'pnl': -15.00},
-    ]
-
-def calculate_performance_metrics(trade_history):
+def calculate_performance_metrics(trade_history: List[Dict[str, Any]]) -> str:
     """
     Calculates and summarizes performance metrics from a list of trades.
     """
-    total_trades = len(trade_history)
-    winning_trades = sum(1 for trade in trade_history if trade['pnl'] > 0)
-    losing_trades = total_trades - winning_trades
-    win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
-    total_pnl = sum(trade['pnl'] for trade in trade_history)
+    if not trade_history:
+        return "No trade history to analyze."
+
+    df = pd.DataFrame(trade_history)
+    total_trades = len(df)
+    
+    # The Alpaca API `get_orders` doesn't directly provide PnL for each trade.
+    # This would require a more complex calculation involving fetching execution details (fills).
+    # For this version, we will focus on metrics we can derive from the closed orders.
+    
+    winning_trades = len(df[df['status'] == 'filled']) # This is a simplification.
+    losing_trades = len(df[df['status'] == 'canceled']) # This is not accurate.
+    
+    # A true win/loss calculation requires comparing entry and exit prices for pairs of trades.
+    # This is a complex task. For now, we will report on completed trades.
 
     report = (
         "Performance Report:\n"
-        f"- Total Trades: {total_trades}\n"
-        f"- Winning Trades: {winning_trades}\n"
-        f"- Losing Trades: {losing_trades}\n"
-        f"- Win Rate: {win_rate:.1f}%\n"
-        f"- Total P&L: ${total_pnl:.2f}"
+        f"- Total Closed Orders: {total_trades}\n"
+        f"- Filled Orders: {winning_trades}\n"
+        f"- Canceled/Rejected Orders: {losing_trades}\n"
+        "Note: True PnL and win/loss ratio requires pairing buy/sell trades, which is a complex feature."
     )
     return report
+
+def fetch_market_data(assets: List[str]) -> Dict[str, pd.DataFrame]:
+    """Simulates fetching market data for a list of assets."""
+    # This is a mock. In a real scenario, you'd use an API like Alpaca.
+    print(f"Fetching market data for: {assets}")
+    return {asset: pd.DataFrame({'close': [100, 102, 101]}) for asset in assets}
+
+def filter_assets_by_volume(market_data: Dict[str, pd.DataFrame], min_volume: int = 10000) -> List[str]:
+    """Simulates filtering assets based on trading volume."""
+    # This is a mock. You'd calculate volume from the real market data.
+    print(f"Filtering assets with volume > {min_volume}")
+    return list(market_data.keys())

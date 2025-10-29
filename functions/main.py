@@ -25,22 +25,23 @@ def run_trading_crew(req: https_fn.CallableRequest):
         raise https_fn.HttpsError('invalid-argument', 'The function must be called with an "asset" argument.')
 
     # 2. Prepare inputs for the crew
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=90)
     inputs = {
         'assets_of_interest': [asset],
-        'start_date': start_date.strftime('%Y-%m-%d'),
-        'end_date': end_date.strftime('%Y-%m-%d')
+        'strategy_params': {'short_window': 8, 'medium_window': 13, 'long_window': 21},
+        'run_id': None,  # Will be set after the run is created
+        'user_id': user_id,
     }
     
     # 3. Create a run document in Firestore for logging
     run_ref = db.collection('runs').document()
     run_ref.set({
-        'userId': user_id,  # <-- ADDED THIS LINE
+        'userId': user_id,
         'asset': asset,
         'startTime': firestore.SERVER_TIMESTAMP,
         'status': 'RUNNING'
     })
+
+    inputs['run_id'] = run_ref.id
 
     try:
         # 4. Initialize and run the crew

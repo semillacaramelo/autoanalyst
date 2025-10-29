@@ -1,6 +1,6 @@
 from crewai import Agent
-from tools.alpaca_tools import fetch_historical_data, place_market_order, fetch_1_minute_historical_data
-from tools.analysis_tools import calculate_3ma_signal, get_trade_history, calculate_performance_metrics
+from tools.alpaca_tools import fetch_historical_data, place_market_order, fetch_1_minute_historical_data, get_trade_history
+from tools.analysis_tools import calculate_3ma_signal, calculate_performance_metrics, fetch_market_data, filter_assets_by_volume
 from typing import Dict, Any
 
 def get_trading_agents(llm_config: Dict[str, Any]):
@@ -13,6 +13,7 @@ def get_trading_agents(llm_config: Dict[str, Any]):
         backstory="A sharp analyst identifying promising assets.",
         verbose=True,
         allow_delegation=False,
+        tools=[fetch_market_data, filter_assets_by_volume],
         llm=llm_config
     )
 

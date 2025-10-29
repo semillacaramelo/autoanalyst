@@ -1,18 +1,17 @@
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 import pandas as pd
 from config.config import ALPACA_CONFIG
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 def get_alpaca_trading_client() -> Optional[TradingClient]:
     """Initializes and returns an Alpaca TradingClient."""
     try:
         client = TradingClient(ALPACA_CONFIG['key_id'], ALPACA_CONFIG['secret_key'], paper=ALPACA_CONFIG['paper'])
-        # Verify connection by fetching account info
         client.get_account()
         print("Successfully connected to Alpaca Trading API.")
         return client
@@ -51,7 +50,7 @@ def place_market_order(symbol: str, qty: float, side: str):
         market_order_data = MarketOrderRequest(
             symbol=symbol,
             qty=qty,
-            side=OrderSide[side.upper()], # 'BUY' or 'SELL'
+            side=OrderSide[side.upper()],
             time_in_force=TimeInForce.DAY
         )
         market_order = trading_client.submit_order(order_data=market_order_data)
@@ -60,3 +59,25 @@ def place_market_order(symbol: str, qty: float, side: str):
     except Exception as e:
         print(f"Error placing market order for {symbol}: {e}")
         return None
+
+def get_trade_history() -> List[Dict[str, Any]]:
+    """Retrieves closed orders/trade history from Alpaca."""
+    trading_client = get_alpaca_trading_client()
+    if not trading_client:
+        raise Exception("Could not connect to Alpaca.")
+    try:
+        request_params = GetOrdersRequest(status=QueryOrderStatus.CLOSED)
+        closed_orders = trading_client.get_orders(filter=request_params)
+        history = [
+            {
+                "symbol": order.symbol,
+                "qty": order.filled_qty,
+                "side": order.side.value,
+                "avg_fill_price": order.filled_avg_price,
+                "status": order.status.value,
+            }
+            for order in closed_orders
+        ]
+        return history
+    except Exception as e:
+        raise Exception(f"Error fetching trade history from Alpaca: {e}")

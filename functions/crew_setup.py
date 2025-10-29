@@ -13,10 +13,10 @@ def create_trading_crew():
     gemini_manager = get_gemini_manager()
 
     # Get the Gemini LLM configuration
-    llm_config = gemini_manager.get_llm_config(model_name="gemini-pro")
+    llm = gemini_manager.get_llm(model_name="gemini-1.5-pro-latest")
 
     # Get the dictionary of trading agents, passing the config to the function
-    agents = get_trading_agents(llm_config)
+    agents = get_trading_agents(llm)
 
     # Get the list of trading tasks, passing the agents to the function
     tasks = get_trading_tasks(agents)

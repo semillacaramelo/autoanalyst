@@ -1,17 +1,17 @@
+import os
 from itertools import cycle
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
+from langchain_google_genai import ChatGoogleGenerativeAI
 from config.config import GEMINI_API_KEYS
 
 class GeminiConnectionManager:
     """
-    Manages the connection configuration for the Gemini API, including
-    API key rotation.
+    Manages Gemini API connections with automatic key rotation
+    and dynamic model selection.
     """
     def __init__(self, api_keys: Optional[List[str]] = None):
         if not api_keys:
             # In a deployed environment, secrets are loaded as environment variables.
-            import os
-            # The secret name is uppercased.
             gemini_keys_str = os.environ.get("GEMINI_API_KEYS")
             if gemini_keys_str:
                 api_keys = [key.strip() for key in gemini_keys_str.split(',')]
@@ -21,7 +21,7 @@ class GeminiConnectionManager:
 
         if not api_keys:
             raise ValueError("GEMINI_API_KEYS are not configured.")
-
+        
         self._api_key_cycler = cycle(api_keys)
         self.active_key = None
 
@@ -30,26 +30,33 @@ class GeminiConnectionManager:
         self.active_key = next(self._api_key_cycler)
         return self.active_key
 
-    def get_llm_config(self, model_name: str = "gemini-pro", temperature: float = 0.1) -> Dict[str, Any]:
+    def get_llm(self, 
+                model_name: str = "gemini-1.5-pro-latest", 
+                temperature: float = 0.1) -> ChatGoogleGenerativeAI:
         """
-        Provides a configuration dictionary for the Gemini LLM.
-
+        Provides a configured LLM instance with rotated API key.
+        
         Args:
-            model_name (str): The name of the Gemini model to use.
-            temperature (float): The temperature for the model's responses.
-
+            model_name: Gemini model identifier
+            temperature: Response creativity (0.0-1.0)
+        
         Returns:
-            A dictionary with the LLM configuration for CrewAI.
+            Configured ChatGoogleGenerativeAI instance
         """
         api_key = self._get_next_key()
-        print(f"--- Using Gemini model: {model_name} with a rotated API key. ---")
+        print(f"[GeminiManager] Using model: {model_name}")
+        
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            verbose=True,
+            temperature=temperature,
+            google_api_key=api_key,
+            convert_system_message_to_human=True
+        )
 
-        return {
-            "model": f"google/{model_name}",
-            "api_key": api_key,
-            "temperature": temperature,
-        }
+# Singleton instance
+gemini_manager = GeminiConnectionManager()
 
 def get_gemini_manager():
   """Factory function to get an instance of the GeminiConnectionManager."""
-  return GeminiConnectionManager()
+  return gemini_manager
