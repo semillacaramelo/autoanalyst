@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, functions, googleProvider } from './firebase';
 import { signInWithPopup } from "firebase/auth";
 import { httpsCallable } from 'firebase/functions';
@@ -9,9 +9,12 @@ function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState('');
 
-    auth.onAuthStateChanged((user) => {
-        setUser(user);
-    });
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setUser(user);
+        });
+        return () => unsubscribe();
+    }, []);
 
     const handleSignIn = () => {
         signInWithPopup(auth, googleProvider).catch(alert);

@@ -1,5 +1,5 @@
 from crewai import Agent
-from tools.alpaca_tools import fetch_historical_data, place_market_order
+from tools.alpaca_tools import fetch_historical_data, place_market_order, fetch_1_minute_historical_data
 from tools.analysis_tools import calculate_3ma_signal, get_trade_history, calculate_performance_metrics
 from typing import Dict, Any
 

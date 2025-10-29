@@ -9,9 +9,18 @@ class GeminiConnectionManager:
     """
     def __init__(self, api_keys: Optional[List[str]] = None):
         if not api_keys:
-            api_keys = GEMINI_API_KEYS
+            # In a deployed environment, secrets are loaded as environment variables.
+            import os
+            # The secret name is uppercased.
+            gemini_keys_str = os.environ.get("GEMINI_API_KEYS")
+            if gemini_keys_str:
+                api_keys = [key.strip() for key in gemini_keys_str.split(',')]
+            else:
+                # Fallback for local development if .env is used
+                api_keys = GEMINI_API_KEYS
+
         if not api_keys:
-            raise ValueError("GEMINI_API_KEYS are not configured in .env or config.py")
+            raise ValueError("GEMINI_API_KEYS are not configured.")
 
         self._api_key_cycler = cycle(api_keys)
         self.active_key = None
@@ -41,5 +50,6 @@ class GeminiConnectionManager:
             "temperature": temperature,
         }
 
-# Singleton instance to be used across the application
-gemini_manager = GeminiConnectionManager()
+def get_gemini_manager():
+  """Factory function to get an instance of the GeminiConnectionManager."""
+  return GeminiConnectionManager()

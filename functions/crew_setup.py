@@ -1,5 +1,5 @@
 from crewai import Crew, Process
-from config.gemini_connector import gemini_manager
+from config.gemini_connector import get_gemini_manager
 from agents.trading_agents import get_trading_agents
 from tasks import get_trading_tasks
 
@@ -9,6 +9,9 @@ def create_trading_crew():
     This function gets the LLM config, creates the agents with that config,
     creates the tasks, and assembles the final crew.
     """
+    # Get the Gemini manager instance using the factory function
+    gemini_manager = get_gemini_manager()
+
     # Get the Gemini LLM configuration
     llm_config = gemini_manager.get_llm_config(model_name="gemini-pro")
 

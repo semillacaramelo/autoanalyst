@@ -1,3 +1,4 @@
 {
-    "geminicodeassist.agentYoloMode": true
+    "geminicodeassist.agentYoloMode": true,
+    "chat.tools.autoApprove": true
 }
