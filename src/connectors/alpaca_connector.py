@@ -108,14 +108,27 @@ class AlpacaConnectionManager:
             DataFrame with columns: open, high, low, close, volume
         """
         try:
-            # Parse timeframe
-            amount, unit = int(timeframe[:-3]), timeframe[-3:]
-            if unit == "Min":
-                tf = TimeFrame(amount, TimeFrameUnit.Minute)
-            elif unit == "our":  # "Hour"
-                tf = TimeFrame(amount, TimeFrameUnit.Hour)
+            # Improved timeframe parsing
+            import re
+            timeframe_lower = timeframe.lower()
+            # This regex handles formats like "1m", "5Min", "1Hour", "1h", "1 day", "1d"
+            match = re.match(r'(\d+)\s*(m|min|h|hour|d|day)', timeframe_lower)
+            if not match:
+                raise ValueError(f"Invalid timeframe format: {timeframe}")
+
+            amount = int(match.group(1))
+            unit_str = match.group(2)
+
+            if 'm' in unit_str:
+                tf_unit = TimeFrameUnit.Minute
+            elif 'h' in unit_str:
+                tf_unit = TimeFrameUnit.Hour
+            elif 'd' in unit_str:
+                tf_unit = TimeFrameUnit.Day
             else:
-                tf = TimeFrame(1, TimeFrameUnit.Day)
+                raise ValueError(f"Unrecognized timeframe unit in: {timeframe}")
+
+            tf = TimeFrame(amount, tf_unit)
             
             # Calculate start/end times
             end = datetime.now()
