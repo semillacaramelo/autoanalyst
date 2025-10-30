@@ -15,44 +15,45 @@ from crewai.tools import tool
 from src.tools.market_data_tools import market_data_tools
 from src.tools.analysis_tools import technical_analysis
 from src.tools.execution_tools import execution_tools
+from src.crew.trading_crew import crew_context
 
 # Tool definitions remain the same
 @tool("Fetch OHLCV Data")
-def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100, context: dict = None) -> dict:
+def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100) -> dict:
     """Fetch historical OHLCV data."""
     result = market_data_tools.fetch_ohlcv_data(symbol, timeframe, limit)
     if result.get('success') and result.get('data') is not None:
-        context.market_data = result['data']
+        crew_context.market_data = result['data']
     return result
 
 @tool("Generate 3MA Signal")
-def generate_3ma_signal_tool(context: dict) -> dict:
+def generate_3ma_signal_tool() -> dict:
     """Generate a trading signal using the 3MA strategy."""
-    df = context.market_data
+    df = crew_context.market_data
     if df is not None and not df.empty:
         return technical_analysis.generate_3ma_signal(df)
     return {"signal": "HOLD", "error": "No data available"}
 
 @tool("Check Volume Confirmation")
-def check_volume_confirmation_tool(context: dict) -> dict:
+def check_volume_confirmation_tool() -> dict:
     """Check for volume confirmation."""
-    df = context.market_data
+    df = crew_context.market_data
     if df is not None and not df.empty:
         return technical_analysis.calculate_volume_confirmation(df)
     return {"confirmed": False, "error": "No data available"}
 
 @tool("Check Volatility Range")
-def check_volatility_tool(context: dict) -> dict:
+def check_volatility_tool() -> dict:
     """Check volatility using ATR."""
-    df = context.market_data
+    df = crew_context.market_data
     if df is not None and not df.empty:
         return technical_analysis.calculate_volatility_check(df)
     return {"acceptable": False, "error": "No data available"}
 
 @tool("Check Trend Strength")
-def check_trend_strength_tool(context: dict) -> dict:
+def check_trend_strength_tool() -> dict:
     """Check trend strength using ADX."""
-    df = context.market_data
+    df = crew_context.market_data
     if df is not None and not df.empty:
         return technical_analysis.calculate_trend_strength(df)
     return {"has_strong_trend": False, "error": "No data available"}

@@ -16,7 +16,6 @@ class TradingTasks:
             - Timeframe: {timeframe}
             - Number of bars: {limit}
             - Validate data completeness and consistency.
-            - Use the shared context: {context}
             
             Return the data result including validation status.""",
             expected_output="""A dictionary containing the success status, a pandas DataFrame with the OHLCV data, and metadata including validation results.""",
@@ -26,7 +25,6 @@ class TradingTasks:
     def generate_signal_task(self, agent, context) -> Task:
         return Task(
             description="""Analyze the market data from the previous step and generate a trading signal using the 3MA strategy.
-            Use the shared context to access market data: {context}
             
             Strategy Rules:
             - Calculate Fast ({ma_fast}), Medium ({ma_medium}), and Slow ({ma_slow}) EMAs.
@@ -43,7 +41,6 @@ class TradingTasks:
     def validate_signal_task(self, agent, context) -> Task:
         return Task(
             description="""Validate the generated signal using multiple confirmation layers.
-            Use the shared context to access market data: {context}
             
             Confirmation Checks:
             1. Volume: Current volume > {volume_threshold}x average.
@@ -63,7 +60,6 @@ class TradingTasks:
     def assess_risk_task(self, agent, context) -> Task:
         return Task(
             description="""Perform risk management checks and calculate the appropriate position size for the validated signal.
-            Use the shared context to access market data: {context}
             
             Portfolio Constraints:
             - Max open positions: {max_positions}
@@ -84,7 +80,6 @@ class TradingTasks:
     def execute_trade_task(self, agent, context) -> Task:
         return Task(
             description="""Execute the trade if it was approved by the Risk Manager.
-            Use the shared context to access market data: {context}
             
             Rules:
             - If the trade was not approved, or the signal is HOLD, do nothing.
