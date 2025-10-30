@@ -24,6 +24,9 @@ class CrewContext:
     def __init__(self):
         self.market_data = None
 
+# Global singleton instance
+crew_context = CrewContext()
+
 
 class TradingCrew:
     """
@@ -94,7 +97,7 @@ class TradingCrew:
         logger.info(f"Configuration: timeframe={timeframe}, bars={limit}")
         logger.info(f"Mode: {'DRY RUN' if settings.dry_run else 'LIVE TRADING'}")
         
-        context = CrewContext()
+        crew_context.market_data = None
 
         inputs = {
             "symbol": symbol,
@@ -107,8 +110,7 @@ class TradingCrew:
             "adx_threshold": settings.adx_threshold,
             "max_positions": settings.max_open_positions,
             "max_risk": settings.max_risk_per_trade * 100,
-            "daily_loss": settings.daily_loss_limit * 100,
-            "context": context
+            "daily_loss": settings.daily_loss_limit * 100
         }
         
         try:
