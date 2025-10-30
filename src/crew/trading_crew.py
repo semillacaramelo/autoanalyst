@@ -17,6 +17,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class CrewContext:
+    """
+    Shared context object for the trading crew.
+    """
+    def __init__(self):
+        self.market_data = None
+
+
 class TradingCrew:
     """
     Main trading crew orchestrator.
@@ -86,6 +94,8 @@ class TradingCrew:
         logger.info(f"Configuration: timeframe={timeframe}, bars={limit}")
         logger.info(f"Mode: {'DRY RUN' if settings.dry_run else 'LIVE TRADING'}")
         
+        context = CrewContext()
+
         inputs = {
             "symbol": symbol,
             "timeframe": timeframe,
@@ -97,7 +107,8 @@ class TradingCrew:
             "adx_threshold": settings.adx_threshold,
             "max_positions": settings.max_open_positions,
             "max_risk": settings.max_risk_per_trade * 100,
-            "daily_loss": settings.daily_loss_limit * 100
+            "daily_loss": settings.daily_loss_limit * 100,
+            "context": context
         }
         
         try:

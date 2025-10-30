@@ -18,37 +18,44 @@ from src.tools.execution_tools import execution_tools
 
 # Tool definitions remain the same
 @tool("Fetch OHLCV Data")
-def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100) -> dict:
-	"""Fetch historical OHLCV data."""
-	return market_data_tools.fetch_ohlcv_data(symbol, timeframe, limit)
+def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100, context: dict = None) -> dict:
+    """Fetch historical OHLCV data."""
+    result = market_data_tools.fetch_ohlcv_data(symbol, timeframe, limit)
+    if result.get('success') and result.get('data') is not None:
+        context.market_data = result['data']
+    return result
 
 @tool("Generate 3MA Signal")
-def generate_3ma_signal_tool(data: dict) -> dict:
-	"""Generate a trading signal using the 3MA strategy."""
-	if data.get('success') and data.get('data') is not None:
-		return technical_analysis.generate_3ma_signal(data['data'])
-	return {"signal": "HOLD", "error": "No data available"}
+def generate_3ma_signal_tool(context: dict) -> dict:
+    """Generate a trading signal using the 3MA strategy."""
+    df = context.market_data
+    if df is not None and not df.empty:
+        return technical_analysis.generate_3ma_signal(df)
+    return {"signal": "HOLD", "error": "No data available"}
 
 @tool("Check Volume Confirmation")
-def check_volume_confirmation_tool(data: dict) -> dict:
-	"""Check for volume confirmation."""
-	if data.get('success') and data.get('data') is not None:
-		return technical_analysis.calculate_volume_confirmation(data['data'])
-	return {"confirmed": False, "error": "No data available"}
+def check_volume_confirmation_tool(context: dict) -> dict:
+    """Check for volume confirmation."""
+    df = context.market_data
+    if df is not None and not df.empty:
+        return technical_analysis.calculate_volume_confirmation(df)
+    return {"confirmed": False, "error": "No data available"}
 
 @tool("Check Volatility Range")
-def check_volatility_tool(data: dict) -> dict:
-	"""Check volatility using ATR."""
-	if data.get('success') and data.get('data') is not None:
-		return technical_analysis.calculate_volatility_check(data['data'])
-	return {"acceptable": False, "error": "No data available"}
+def check_volatility_tool(context: dict) -> dict:
+    """Check volatility using ATR."""
+    df = context.market_data
+    if df is not None and not df.empty:
+        return technical_analysis.calculate_volatility_check(df)
+    return {"acceptable": False, "error": "No data available"}
 
 @tool("Check Trend Strength")
-def check_trend_strength_tool(data: dict) -> dict:
-	"""Check trend strength using ADX."""
-	if data.get('success') and data.get('data') is not None:
-		return technical_analysis.calculate_trend_strength(data['data'])
-	return {"has_strong_trend": False, "error": "No data available"}
+def check_trend_strength_tool(context: dict) -> dict:
+    """Check trend strength using ADX."""
+    df = context.market_data
+    if df is not None and not df.empty:
+        return technical_analysis.calculate_trend_strength(df)
+    return {"has_strong_trend": False, "error": "No data available"}
 
 @tool("Check Portfolio Constraints")
 def check_constraints_tool() -> dict:
