@@ -10,18 +10,18 @@ This document consolidates current, project-relevant API limits, behaviors, and 
 
 Summary
 - Provider: Google (Generative AI / Gemini family)
-- Recommended model for this project: Gemini 1.5 Flash (balanced throughput / cost)
+- Recommended model for this project: Gemini 2.5 Flash (balanced throughput / cost)
 - Primary control surface: Google Generative AI / AI Studio / Generative AI API
 
 Typical free-tier limits (project-level guidance)
-- Gemini 1.5 Pro:
+- Gemini 2.5 Pro:
   - ~5 requests per minute (RPM)
   - ~25 requests per day (RPD)
   - Token throughput (example quota): large TPM values (model-dependent)
-- Gemini 1.5 Flash (recommended):
+- Gemini 2.5 Flash (recommended):
   - ~10 requests per minute (RPM)
   - ~250 requests per day (RPD)
-- Gemini 1.5 Flash‑Lite:
+- Gemini 2.5 Flash‑Lite:
   - ~15 requests per minute (RPM)
   - ~1,000 requests per day (RPD)
 
@@ -108,7 +108,7 @@ Design principles
 - Implement local caching to avoid repeated LLM or data calls for identical inputs.
 
 Gemini optimization techniques
-1. Prefer Gemini 1.5 Flash for better RPM/RPD.
+1. Prefer Gemini 2.5 Flash for better RPM/RPD.
 2. Batch requests where possible: combine multiple questions into single LLM call when semantics allow.
 3. Queue agent requests centrally and apply token-bucket or leaky-bucket rate limiter to avoid 429s.
 4. Cache LLM responses for repeatable queries (e.g., identical task prompts) using a hashed task key + TTL.

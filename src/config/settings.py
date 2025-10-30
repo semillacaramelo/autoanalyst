@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     log_file: str = Field(default="logs/trading_crew.log")
     rate_limit_rpm: int = Field(default=9, ge=1, le=15)
     rate_limit_rpd: int = Field(default=200, ge=1, le=1000)
+    # LLM Configuration
+    # Canonical provider-prefixed model identifier expected by LiteLLM/CrewAI
+    default_llm_model: str = Field(default="google/gemini-2.5-flash", description="Provider-prefixed model id, e.g. google/gemini-1.5-flash-latest")
+    # Use 'gemini' as the logical provider token so downstream layers (litellm)
+    # map to the Gemini codepath which prefers API-key based calls when an
+    # API key is present in the environment. Keep compatibility with the
+    # historical 'google' token by allowing either in runtime checks.
+    llm_provider: str = Field(default="gemini", description="LLM provider token used by adapters (e.g., 'gemini' or 'google')")
     
     # Development
     dry_run: bool = Field(default=True, description="Don't place real orders")
@@ -70,6 +78,15 @@ class Settings(BaseSettings):
     def get_gemini_keys_list(self) -> List[str]:
         """Return Gemini API keys as a list."""
         return [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+
+    @validator("default_llm_model")
+    def validate_default_model_format(cls, v):
+        """Ensure default LL M model uses provider-prefixed format to help LiteLLM routing."""
+        if not v:
+            raise ValueError("default_llm_model cannot be empty")
+        if not v.startswith("google/"):
+            raise ValueError("default_llm_model must be provider-prefixed (e.g. 'google/gemini-1.5-flash-latest')")
+        return v
     
     @property
     def is_production(self) -> bool:

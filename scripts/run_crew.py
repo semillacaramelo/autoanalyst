@@ -11,12 +11,11 @@ from rich.table import Table
 from pathlib import Path
 import sys
 
-# Add src to path
+# Add src to path before other project imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config.settings import settings
 from src.crew.trading_crew import trading_crew
-from src.connectors.gemini_connector import gemini_manager
 from src.connectors.alpaca_connector import alpaca_manager
 from src.utils.logger import setup_logging
 
@@ -41,7 +40,6 @@ def run(symbol, timeframe, limit):
         border_style="cyan"
     ))
     
-    # Display configuration
     console.print("\n[yellow]Configuration:[/yellow]")
     config_table = Table(show_header=False, box=None)
     config_table.add_column("Parameter", style="cyan")
@@ -54,14 +52,12 @@ def run(symbol, timeframe, limit):
     
     console.print(config_table)
     
-    # Confirm if live trading
     if not settings.dry_run:
         console.print("\n[bold red]⚠️  WARNING: LIVE TRADING MODE[/bold red]")
         if not click.confirm("Are you sure you want to execute live trades?"):
             console.print("[yellow]Cancelled by user[/yellow]")
             return
     
-    # Execute crew
     console.print("\n[cyan]Starting trading crew...[/cyan]\n")
     
     try:
@@ -100,29 +96,26 @@ def status():
         border_style="cyan"
     ))
     
-    # Check Gemini
     console.print("\n[cyan]Gemini API Status:[/cyan]")
     try:
-        stats = gemini_manager.get_stats()
-        console.print(f"  ✓ API Keys: {stats['active_keys']}")
-        console.print(f"  ✓ Requests (Session): {stats['total_requests']}")
-        console.print(f"  ✓ RPM Used: {stats['rpm_used']}/{stats['rpm_limit']}")
-        console.print(f"  ✓ RPD Used: {stats['rpd_used']}/{stats['rpd_limit']}")
+        keys = settings.get_gemini_keys_list()
+        if keys:
+            console.print(f"  ✓ Gemini API keys found in config: [green]{len(keys)} key(s)[/green]")
+        else:
+            console.print("  [red]✗ Gemini API keys NOT configured in .env[/red]")
     except Exception as e:
-        console.print(f"  [red]✗ Error: {e}[/red]")
-    
-    # Check Alpaca
+        console.print(f"  [red]✗ Error checking Gemini status: {e}[/red]")
+
     console.print("\n[cyan]Alpaca API Status:[/cyan]")
     try:
         account = alpaca_manager.get_account()
         console.print(f"  ✓ Account Status: {account['status']}")
-        console.print(f"  ✓ Equity: ${account['equity']:,.2f}")
-        console.print(f"  ✓ Buying Power: ${account['buying_power']:,.2f}")
+        console.print(f"  ✓ Equity: ${account['equity']:_}")
+        console.print(f"  ✓ Buying Power: ${account['buying_power']:_}")
         console.print(f"  ✓ Mode: {'Paper Trading' if alpaca_manager.is_paper else 'LIVE'}")
     except Exception as e:
         console.print(f"  [red]✗ Error: {e}[/red]")
     
-    # Check positions
     console.print("\n[cyan]Current Positions:[/cyan]")
     try:
         positions = alpaca_manager.get_positions()
@@ -130,7 +123,7 @@ def status():
             for pos in positions:
                 console.print(
                     f"  • {pos['symbol']}: {pos['qty']} shares "
-                    f"(P&L: ${pos['unrealized_pl']:,.2f})"
+                    f"(P&L: ${pos['unrealized_pl']:_})"
                 )
         else:
             console.print("  [dim]No open positions[/dim]")
@@ -141,72 +134,10 @@ def status():
 @cli.command()
 def validate():
     """Run configuration validation checks."""
-    console.print("[cyan]Running configuration validation...[/cyan]\n")
-    
-    from pathlib import Path
     import subprocess
-    
-    # Run the validation script
     script_path = Path(__file__).parent / "validate_config.py"
-    result = subprocess.run(
-        ["python", str(script_path)],
-        capture_output=False
-    )
-    
-    sys.exit(result.returncode)
+    subprocess.run(["python", str(script_path)])
 
 
 if __name__ == '__main__':
     cli()
-#!/usr/bin/env python3
-"""
-Trading Crew CLI
-Command-line interface for running the trading crew.
-"""
-
-import click
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from pathlib import Path
-import sys
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from src.config.settings import settings
-from src.crew.trading_crew import trading_crew
-from src.connectors.gemini_connector import gemini_manager
-from src.connectors.alpaca_connector import alpaca_manager
-from src.utils.logger import setup_logging
-
-console = Console()
-
-@click.group()
-def cli():
-	"""AI-Driven Trading Crew - Backend CLI"""
-	pass
-
-@cli.command()
-@click.option('--symbol', default=None, help='Stock symbol to trade (default: from config)')
-@click.option('--timeframe', default='1Min', help='Bar timeframe (1Min, 5Min, etc.)')
-@click.option('--limit', default=100, help='Number of historical bars to fetch')
-def run(symbol, timeframe, limit):
-	"""Run the trading crew for a single execution."""
-	# ...implementation as per plan...
-	pass
-
-@cli.command()
-def status():
-	"""Check system status and connectivity."""
-	# ...implementation as per plan...
-	pass
-
-@cli.command()
-def validate():
-	"""Run configuration validation checks."""
-	# ...implementation as per plan...
-	pass
-
-if __name__ == '__main__':
-	cli()

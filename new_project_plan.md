@@ -50,17 +50,17 @@ This document must contain:# **AI-Driven Trading Crew: Backend-First Development
 ## 1. Google Gemini API - Free Tier Constraints
 
 ### Rate Limits (Updated: [DATE])
-- **Gemini 1.5 Pro:**
+- **Gemini 2.5 Pro:**
   - 5 requests per minute (RPM)
   - 25 requests per day (RPD)
   - 250,000 tokens per minute (TPM)
   
-- **Gemini 1.5 Flash (RECOMMENDED for this project):**
+- **Gemini 2.5 Flash (RECOMMENDED for this project):**
   - 10 requests per minute (RPM)
   - 250 requests per day (RPD)
   - 250,000 tokens per minute (TPM)
 
-- **Gemini 1.5 Flash-Lite:**
+- **Gemini 2.5 Flash-Lite:**
   - 15 requests per minute (RPM)
   - 1,000 requests per day (RPD)
   - 250,000 tokens per minute (TPM)
@@ -140,7 +140,7 @@ This document must contain:# **AI-Driven Trading Crew: Backend-First Development
 ## 4. Recommended Strategy for Free Tier Usage
 
 ### Gemini Optimization:
-1. **Use Gemini 1.5 Flash** instead of Pro (10 RPM vs 5 RPM)
+1. **Use Gemini 2.5 Flash** instead of Pro (10 RPM vs 5 RPM)
 2. **Implement request queuing** to stay under limits
 3. **Batch operations** where possible
 4. **Cache agent responses** to reduce redundant calls
@@ -292,7 +292,6 @@ alpaca-trade-api = "^3.2.0"
 # Data Analysis
 pandas = "^2.2.0"
 numpy = "^1.26.0"
-ta-lib = "^0.4.32"  # Technical analysis library
 
 # Utilities
 pydantic = "^2.8.0"
@@ -1031,7 +1030,7 @@ class GeminiConnectionManager:
     def __init__(
         self,
         api_keys: Optional[List[str]] = None,
-        model_name: str = "gemini-1.5-flash-latest",  # Flash for better limits
+        model_name: str = "gemini-2.5-flash",  # Flash for better limits
         temperature: float = 0.1
     ):
         self.api_keys = api_keys or settings.get_gemini_keys_list()

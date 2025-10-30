@@ -3,16 +3,14 @@ name = "trading-crew"
 version = "0.1.0"
 description = "AI-driven trading system using CrewAI and Gemini"
 authors = ["AI Developer <ai@example.com>"]
+package-mode = false
 
 
 [tool.poetry.dependencies]
 python = ">=3.11, <=3.13"
 python-dotenv = "^1.0.0"
-crewai = "^0.80.0"
+crewai = {extras = ["google-genai"], version = "^0.80.0"}
 crewai-tools = "^0.14.0"
-langchain-google-genai = "^2.0.0"
-google-generativeai = "^0.8.0"
-litellm = "^1.35.2"
 alpaca-py = "^0.32.0"
 pandas = "^2.2.0"
 numpy = "^1.26.0"

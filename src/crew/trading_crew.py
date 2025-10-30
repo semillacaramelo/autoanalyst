@@ -4,39 +4,14 @@ Main crew that executes the complete trading workflow.
 """
 
 from crewai import Crew, Process
-from src.crew.tasks import (
-    collect_data_task,
-    # ...other tasks as per plan...
-    execute_trade_task
-)
-from src.agents.base_agents import (
-    data_collector_agent,
-    # ...other agents as per plan...
-    execution_agent
-)
-"""
-Trading Crew Orchestration
-Main crew that executes the complete trading workflow.
-"""
 
-from crewai import Crew, Process
-from src.crew.tasks import (
-    collect_data_task,
-    generate_signal_task,
-    validate_signal_task,
-    assess_risk_task,
-    execute_trade_task
-)
-from src.agents.base_agents import (
-    data_collector_agent,
-    signal_generator_agent,
-    signal_validator_agent,
-    risk_manager_agent,
-    execution_agent
-)
+# Import the factory classes
+from src.agents.base_agents import TradingAgents
+from src.crew.tasks import TradingTasks
+
 from src.config.settings import settings
-import logging
 from src.connectors.gemini_connector import gemini_manager
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +23,48 @@ class TradingCrew:
     """
     
     def __init__(self):
+        # 1. Set API Key and Create LLM
+        try:
+            # Use centralized connector to obtain a normalized LLM adapter.
+            # The connector handles key rotation, rate limiting and returns an
+            # adapter exposing `.provider` and `.model` (e.g. "google/gemini-...").
+            llm = gemini_manager.get_adapter()
+        except Exception as e:
+            logger.critical("Failed to initialize Gemini LLM adapter: %s", e, exc_info=True)
+            raise
 
+        # Basic validation: adapter must expose provider/model expected by LiteLLM
+        # Accept either 'gemini' or legacy 'google' provider tokens for
+        # backward compatibility. Litellm expects 'gemini' to route to the
+        # Google Gemini codepath that can use GOOGLE_API_KEY/GEMINI_API_KEY.
+        if getattr(llm, "provider", None) not in ("gemini", "google"):
+            raise RuntimeError(f"LLM provider mismatch: expected 'gemini'/'google', got {getattr(llm, 'provider', None)}")
+        # Ensure model is provider-prefixed. Accept either the configured
+        # provider (settings.llm_provider) or legacy 'google/' prefix for
+        # backward compatibility.
+        model_val = getattr(llm, "model", "")
+        if not (model_val.startswith(f"{settings.llm_provider}/") or model_val.startswith("google/")):
+            raise RuntimeError(f"LLM model must be provider-prefixed (e.g. '{settings.llm_provider}/...'), got {model_val}")
+
+        # 2. Instantiate Factories
+        agents_factory = TradingAgents()
+        tasks_factory = TradingTasks()
+
+        # 3. Create Agents, injecting the LLM
+        data_collector_agent = agents_factory.data_collector_agent(llm)
+        signal_generator_agent = agents_factory.signal_generator_agent(llm)
+        signal_validator_agent = agents_factory.signal_validator_agent(llm)
+        risk_manager_agent = agents_factory.risk_manager_agent(llm)
+        execution_agent = agents_factory.execution_agent(llm)
+
+        # 4. Create Tasks, injecting the Agents and defining context
+        collect_data = tasks_factory.collect_data_task(data_collector_agent)
+        generate_signal = tasks_factory.generate_signal_task(signal_generator_agent, context=collect_data)
+        validate_signal = tasks_factory.validate_signal_task(signal_validator_agent, context=generate_signal)
+        assess_risk = tasks_factory.assess_risk_task(risk_manager_agent, context=validate_signal)
+        execute_trade = tasks_factory.execute_trade_task(execution_agent, context=assess_risk)
+
+        # 5. Assemble the Crew
         self.crew = Crew(
             agents=[
                 data_collector_agent,
@@ -58,17 +74,17 @@ class TradingCrew:
                 execution_agent
             ],
             tasks=[
-                collect_data_task,
-                generate_signal_task,
-                validate_signal_task,
-                assess_risk_task,
-                execute_trade_task
+                collect_data,
+                generate_signal,
+                validate_signal,
+                assess_risk,
+                execute_trade
             ],
-            process=Process.sequential,  # Execute tasks in order
+            process=Process.sequential,
             verbose=True
         )
 
-        logger.info("TradingCrew initialized")
+        logger.info("TradingCrew initialized with dependency injection.")
     
     def run(
         self,
@@ -78,16 +94,7 @@ class TradingCrew:
     ) -> dict:
         """
         Execute the complete trading workflow.
-        
-        Args:
-            symbol: Stock symbol to trade (defaults to settings)
-            timeframe: Bar timeframe
-            limit: Number of historical bars to analyze
-        
-        Returns:
-            Dictionary with crew execution results
         """
-        # Use configured symbol if not provided
         if symbol is None:
             symbol = settings.trading_symbol
         
@@ -95,7 +102,6 @@ class TradingCrew:
         logger.info(f"Configuration: timeframe={timeframe}, bars={limit}")
         logger.info(f"Mode: {'DRY RUN' if settings.dry_run else 'LIVE TRADING'}")
         
-        # Prepare inputs for tasks (template variables)
         inputs = {
             "symbol": symbol,
             "timeframe": timeframe,
@@ -111,7 +117,6 @@ class TradingCrew:
         }
         
         try:
-            # Execute the crew
             result = self.crew.kickoff(inputs=inputs)
             
             logger.info("Trading crew completed successfully")
@@ -125,13 +130,12 @@ class TradingCrew:
             }
         
         except Exception as e:
-            logger.error(f"Trading crew execution failed: {e}")
+            logger.error(f"Trading crew execution failed: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
                 "symbol": symbol
             }
-
 
 # Global instance
 trading_crew = TradingCrew()
