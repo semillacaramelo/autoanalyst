@@ -11,10 +11,10 @@ correct adapter instance.
 """
 
 from crewai import Agent
+from crewai.tools import tool
 from src.tools.market_data_tools import market_data_tools
 from src.tools.analysis_tools import technical_analysis
 from src.tools.execution_tools import execution_tools
-from crewai_tools import tool
 
 # Tool definitions remain the same
 @tool("Fetch OHLCV Data")
@@ -67,31 +67,31 @@ def place_order_tool(symbol: str, qty: int, side: str) -> dict:
 
 
 class TradingAgents:
-    """A factory class to create trading agents with a specific LLM configuration."""
+    """A factory class to create trading agents with a specific LLM."""
 
-    def data_collector_agent(self, llm_config: dict) -> Agent:
+    def data_collector_agent(self, llm) -> Agent:
         return Agent(
             role="Market Data Specialist",
             goal="Fetch accurate, complete OHLCV data for the specified asset and validate its quality",
             backstory="A meticulous data collector ensuring every bar is complete and validated.",
             tools=[fetch_ohlcv_data_tool],
-            llm_config=llm_config,
+            llm=llm,
             verbose=True,
             allow_delegation=False
         )
 
-    def signal_generator_agent(self, llm_config: dict) -> Agent:
+    def signal_generator_agent(self, llm) -> Agent:
         return Agent(
             role="Quantitative Technical Analyst",
             goal="Calculate precise technical indicators and generate trading signals using the 3MA strategy",
             backstory="A mathematician and technical analysis expert focused on precise calculations.",
             tools=[generate_3ma_signal_tool],
-            llm_config=llm_config,
+            llm=llm,
             verbose=True,
             allow_delegation=False
         )
 
-    def signal_validator_agent(self, llm_config: dict) -> Agent:
+    def signal_validator_agent(self, llm) -> Agent:
         return Agent(
             role="Chief Quality Officer",
             goal="Validate trading signals using multiple confirmation layers (volume, volatility, trend strength)",
@@ -101,12 +101,12 @@ class TradingAgents:
                 check_volatility_tool,
                 check_trend_strength_tool
             ],
-            llm_config=llm_config,
+            llm=llm,
             verbose=True,
             allow_delegation=False
         )
 
-    def risk_manager_agent(self, llm_config: dict) -> Agent:
+    def risk_manager_agent(self, llm) -> Agent:
         return Agent(
             role="Portfolio Risk Officer",
             goal="Enforce position sizing and portfolio-level risk constraints to protect capital",
@@ -115,18 +115,18 @@ class TradingAgents:
                 check_constraints_tool,
                 calculate_position_size_tool
             ],
-            llm_config=llm_config,
+            llm=llm,
             verbose=True,
             allow_delegation=False
         )
 
-    def execution_agent(self, llm_config: dict) -> Agent:
+    def execution_agent(self, llm) -> Agent:
         return Agent(
             role="Head of Trading Desk",
             goal="Execute approved trades with precision and verify successful order placement",
             backstory="A cool-headed execution specialist who translates approved decisions into live market orders.",
             tools=[place_order_tool],
-            llm_config=llm_config,
+            llm=llm,
             verbose=True,
             allow_delegation=False
         )

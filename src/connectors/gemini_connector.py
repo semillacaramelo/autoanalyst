@@ -97,25 +97,27 @@ class GeminiConnectionManager:
         # Fallback: prefix with provider
         return f"{settings.llm_provider}/{model}"
 
-    def get_llm_config(self):
-        """Return a dictionary with LLM configuration for CrewAI agents."""
+    def get_llm(self):
+        """Return a LangChain ChatGoogleGenerativeAI instance."""
         self.rate_limiter.wait_if_needed()
         api_key = self._get_next_key()
         self.request_count += 1
 
-        # Set environment variables for CrewAI to use the correct API key
-        os.environ["GEMINI_API_KEY"] = api_key
-        os.environ["GOOGLE_API_KEY"] = api_key
+        if ChatGoogleGenerativeAI is None:
+            raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
 
-        model_name = self._normalize_model(self.model_name)
-
-        logger.info(f"GEMINI Manager: Providing config for model: {model_name}")
-
-        return {
-            "model": model_name,
-            "api_key": api_key,
-            "temperature": self.temperature,
-        }
+        try:
+            # Create the LangChain wrapper client
+            client = ChatGoogleGenerativeAI(
+                model=self.model_name,
+                google_api_key=api_key,
+                temperature=self.temperature,
+                verbose=(settings.log_level == "DEBUG")
+            )
+            return client
+        except Exception as e:
+            logger.error("Failed to instantiate ChatGoogleGenerativeAI: %s", e)
+            raise
 
 # Global singleton
 gemini_manager = GeminiConnectionManager()

@@ -3,14 +3,15 @@ Trading Crew Orchestration
 Main crew that executes the complete trading workflow.
 """
 
+import os
 from crewai import Crew, Process
+from crewai.llm import LLM
 
 # Import the factory classes
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
 
 from src.config.settings import settings
-from src.connectors.gemini_connector import gemini_manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,26 +24,22 @@ class TradingCrew:
     """
     
     def __init__(self):
-        # 1. Set API Key and Create LLM
-        try:
-            # The connector now returns a CrewAI-compatible dictionary.
-            llm_config = gemini_manager.get_llm_config()
-            logger.info("TradingCrew: Using LLM config: %s", llm_config.get("model"))
+        # 1. Set API Key
+        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
 
-        except Exception as e:
-            logger.critical("Failed to initialize Gemini LLM config: %s", e, exc_info=True)
-            raise
+        # 2. Instantiate LLM
+        llm = LLM(model="gemini/gemini-2.5-pro")
 
-        # 2. Instantiate Factories
+        # 3. Instantiate Factories
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
-        # 3. Create Agents, injecting the LLM config
-        data_collector_agent = agents_factory.data_collector_agent(llm_config)
-        signal_generator_agent = agents_factory.signal_generator_agent(llm_config)
-        signal_validator_agent = agents_factory.signal_validator_agent(llm_config)
-        risk_manager_agent = agents_factory.risk_manager_agent(llm_config)
-        execution_agent = agents_factory.execution_agent(llm_config)
+        # 4. Create Agents
+        data_collector_agent = agents_factory.data_collector_agent(llm)
+        signal_generator_agent = agents_factory.signal_generator_agent(llm)
+        signal_validator_agent = agents_factory.signal_validator_agent(llm)
+        risk_manager_agent = agents_factory.risk_manager_agent(llm)
+        execution_agent = agents_factory.execution_agent(llm)
 
         # 4. Create Tasks, injecting the Agents and defining context
         collect_data = tasks_factory.collect_data_task(data_collector_agent)
