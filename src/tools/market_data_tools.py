@@ -122,8 +122,10 @@ class MarketDataTools:
             time_diffs = df.index.to_series().diff()[1:]
             expected_diff = time_diffs.mode() if len(time_diffs) > 0 else None
             
-            if expected_diff:
-                large_gaps = time_diffs[time_diffs > expected_diff * 2]
+            if expected_diff is not None and not expected_diff.empty:
+                # Use the first mode if there are multiple
+                mode_diff = expected_diff.iloc[0]
+                large_gaps = time_diffs[time_diffs > mode_diff * 1.5]
                 if len(large_gaps) > 0:
                     issues.append(
                         f"Time series gaps detected: {len(large_gaps)} gaps"
