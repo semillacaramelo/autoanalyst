@@ -28,7 +28,7 @@ class TradingCrew:
         os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
 
         # 2. Instantiate LLM
-        llm = LLM(model="gemini/gemini-2.5-pro")
+        llm = LLM(model="gemini/gemini-2.5-flash")
 
         # 3. Instantiate Factories
         agents_factory = TradingAgents()
