@@ -25,37 +25,24 @@ class TradingCrew:
     def __init__(self):
         # 1. Set API Key and Create LLM
         try:
-            # Use centralized connector to obtain a normalized LLM adapter.
-            # The connector handles key rotation, rate limiting and returns an
-            # adapter exposing `.provider` and `.model` (e.g. "google/gemini-...").
-            llm = gemini_manager.get_adapter()
-        except Exception as e:
-            logger.critical("Failed to initialize Gemini LLM adapter: %s", e, exc_info=True)
-            raise
+            # The connector now returns a CrewAI-compatible dictionary.
+            llm_config = gemini_manager.get_llm_config()
+            logger.info("TradingCrew: Using LLM config: %s", llm_config.get("model"))
 
-        # Basic validation: adapter must expose provider/model expected by LiteLLM
-        # Accept either 'gemini' or legacy 'google' provider tokens for
-        # backward compatibility. Litellm expects 'gemini' to route to the
-        # Google Gemini codepath that can use GOOGLE_API_KEY/GEMINI_API_KEY.
-        if getattr(llm, "provider", None) not in ("gemini", "google"):
-            raise RuntimeError(f"LLM provider mismatch: expected 'gemini'/'google', got {getattr(llm, 'provider', None)}")
-        # Ensure model is provider-prefixed. Accept either the configured
-        # provider (settings.llm_provider) or legacy 'google/' prefix for
-        # backward compatibility.
-        model_val = getattr(llm, "model", "")
-        if not (model_val.startswith(f"{settings.llm_provider}/") or model_val.startswith("google/")):
-            raise RuntimeError(f"LLM model must be provider-prefixed (e.g. '{settings.llm_provider}/...'), got {model_val}")
+        except Exception as e:
+            logger.critical("Failed to initialize Gemini LLM config: %s", e, exc_info=True)
+            raise
 
         # 2. Instantiate Factories
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
-        # 3. Create Agents, injecting the LLM
-        data_collector_agent = agents_factory.data_collector_agent(llm)
-        signal_generator_agent = agents_factory.signal_generator_agent(llm)
-        signal_validator_agent = agents_factory.signal_validator_agent(llm)
-        risk_manager_agent = agents_factory.risk_manager_agent(llm)
-        execution_agent = agents_factory.execution_agent(llm)
+        # 3. Create Agents, injecting the LLM config
+        data_collector_agent = agents_factory.data_collector_agent(llm_config)
+        signal_generator_agent = agents_factory.signal_generator_agent(llm_config)
+        signal_validator_agent = agents_factory.signal_validator_agent(llm_config)
+        risk_manager_agent = agents_factory.risk_manager_agent(llm_config)
+        execution_agent = agents_factory.execution_agent(llm_config)
 
         # 4. Create Tasks, injecting the Agents and defining context
         collect_data = tasks_factory.collect_data_task(data_collector_agent)
