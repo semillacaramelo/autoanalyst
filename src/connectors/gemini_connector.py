@@ -60,35 +60,6 @@ class RateLimiter:
         self.day_window.append(now)
 
 
-class LiteLLMAdapter:
-    """Thin adapter that exposes provider metadata and delegates to the base LLM.
-
-    Required attributes:
-    - provider: 'google'
-    - model: 'google/<model-id>'
-    - model_name: '<model-id>'
-    """
-
-    def __init__(self, base_llm, provider: str, model: str, model_name: str):
-        self._base = base_llm
-        self.provider = provider
-        self.model = model
-        self.model_name = model_name
-
-    def __getattr__(self, item):
-        return getattr(self._base, item)
-
-    def __call__(self, *args, **kwargs):
-        # Prefer direct call on base if available
-        if hasattr(self._base, "__call__"):
-            return self._base(*args, **kwargs)
-        # Try common generate/chat method names
-        for name in ("generate", "chat", "predict", "complete"):
-            if hasattr(self._base, name):
-                return getattr(self._base, name)(*args, **kwargs)
-        raise AttributeError("Underlying LLM has no supported call method")
-
-
 class GeminiConnectionManager:
     def __init__(self,
                  api_keys: Optional[List[str]] = None,
@@ -126,15 +97,11 @@ class GeminiConnectionManager:
         # Fallback: prefix with provider
         return f"{settings.llm_provider}/{model}"
 
-    def get_adapter(self):
-        """Return a LiteLLMAdapter instance wrapping a LangChain Google LLM."""
-        # Enforce rate limiting at creation time as a precaution
+    def get_llm(self):
+        """Return a LangChain ChatGoogleGenerativeAI instance."""
         self.rate_limiter.wait_if_needed()
-
         api_key = self._get_next_key()
         self.request_count += 1
-
-        canonical_model = self._normalize_model(self.model_name)
 
         if ChatGoogleGenerativeAI is None:
             raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
@@ -142,38 +109,15 @@ class GeminiConnectionManager:
         try:
             # Create the LangChain wrapper client
             client = ChatGoogleGenerativeAI(
-                model=canonical_model.replace("google/", ""),
+                model=self.model_name,
                 google_api_key=api_key,
                 temperature=self.temperature,
                 verbose=(settings.log_level == "DEBUG")
             )
-            # Ensure downstream libraries that rely on environment variables
-            # (for example litellm or other wrappers) can find a usable API key.
-            # We prefer not to overwrite an existing env var unless we rotate keys.
-            try:
-                os.environ.setdefault("GOOGLE_API_KEY", api_key)
-                os.environ.setdefault("GEMINI_API_KEY", api_key)
-            except Exception:
-                # Non-fatal: environment may be read-only in some contexts
-                logger.debug("Unable to set GOOGLE_API_KEY/GEMINI_API_KEY in environment")
+            return client
         except Exception as e:
             logger.error("Failed to instantiate ChatGoogleGenerativeAI: %s", e)
             raise
-
-        # Provide both a provider-prefixed `model` and a `model_name` that is
-        # also provider-prefixed. CrewAI's Agent post-init reads `model_name`
-        # to construct its internal LLM; keeping the provider prefix there
-        # ensures LiteLLM/CrewAI route to the correct provider (Gemini) and
-        # avoid falling back to Vertex/ADC flows.
-        adapter = LiteLLMAdapter(
-            base_llm=client,
-            provider=settings.llm_provider,
-            model=canonical_model,
-            model_name=canonical_model,
-        )
-        logger.info("Created Gemini LLM adapter for model %s (key masked)" , adapter.model)
-        return adapter
-
 
 # Global singleton
 gemini_manager = GeminiConnectionManager()

@@ -3,14 +3,15 @@ Trading Crew Orchestration
 Main crew that executes the complete trading workflow.
 """
 
+import os
 from crewai import Crew, Process
+from crewai.llm import LLM
 
 # Import the factory classes
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
 
 from src.config.settings import settings
-from src.connectors.gemini_connector import gemini_manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,34 +24,17 @@ class TradingCrew:
     """
     
     def __init__(self):
-        # 1. Set API Key and Create LLM
-        try:
-            # Use centralized connector to obtain a normalized LLM adapter.
-            # The connector handles key rotation, rate limiting and returns an
-            # adapter exposing `.provider` and `.model` (e.g. "google/gemini-...").
-            llm = gemini_manager.get_adapter()
-        except Exception as e:
-            logger.critical("Failed to initialize Gemini LLM adapter: %s", e, exc_info=True)
-            raise
+        # 1. Set API Key
+        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
 
-        # Basic validation: adapter must expose provider/model expected by LiteLLM
-        # Accept either 'gemini' or legacy 'google' provider tokens for
-        # backward compatibility. Litellm expects 'gemini' to route to the
-        # Google Gemini codepath that can use GOOGLE_API_KEY/GEMINI_API_KEY.
-        if getattr(llm, "provider", None) not in ("gemini", "google"):
-            raise RuntimeError(f"LLM provider mismatch: expected 'gemini'/'google', got {getattr(llm, 'provider', None)}")
-        # Ensure model is provider-prefixed. Accept either the configured
-        # provider (settings.llm_provider) or legacy 'google/' prefix for
-        # backward compatibility.
-        model_val = getattr(llm, "model", "")
-        if not (model_val.startswith(f"{settings.llm_provider}/") or model_val.startswith("google/")):
-            raise RuntimeError(f"LLM model must be provider-prefixed (e.g. '{settings.llm_provider}/...'), got {model_val}")
+        # 2. Instantiate LLM
+        llm = LLM(model="gemini/gemini-2.5-pro")
 
-        # 2. Instantiate Factories
+        # 3. Instantiate Factories
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
-        # 3. Create Agents, injecting the LLM
+        # 4. Create Agents
         data_collector_agent = agents_factory.data_collector_agent(llm)
         signal_generator_agent = agents_factory.signal_generator_agent(llm)
         signal_validator_agent = agents_factory.signal_validator_agent(llm)

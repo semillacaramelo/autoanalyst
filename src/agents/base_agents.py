@@ -11,10 +11,10 @@ correct adapter instance.
 """
 
 from crewai import Agent
+from crewai.tools import tool
 from src.tools.market_data_tools import market_data_tools
 from src.tools.analysis_tools import technical_analysis
 from src.tools.execution_tools import execution_tools
-from crewai_tools import tool
 
 # Tool definitions remain the same
 @tool("Fetch OHLCV Data")
