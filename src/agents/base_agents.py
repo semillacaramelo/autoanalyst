@@ -32,6 +32,7 @@ from src.strategies.registry import get_strategy
 def generate_signal_tool(strategy_name: str) -> dict:
     """
     Generate a trading signal using a specified strategy.
+<<<<<<< HEAD
 
     Args:
         strategy_name: The name of the strategy to use (e.g., '3ma', 'rsi_breakout').
@@ -48,6 +49,24 @@ def generate_signal_tool(strategy_name: str) -> dict:
     except Exception as e:
         return {"signal": "HOLD", "error": str(e)}
 
+=======
+
+    Args:
+        strategy_name: The name of the strategy to use (e.g., '3ma', 'rsi_breakout').
+    """
+    df = crew_context.market_data
+    if df is None or df.empty:
+        return {"signal": "HOLD", "error": "No data available"}
+
+    try:
+        strategy = get_strategy(strategy_name)
+        signal = strategy.generate_signal(df)
+        validated_signal = strategy.validate_signal(df, signal)
+        return validated_signal
+    except Exception as e:
+        return {"signal": "HOLD", "error": str(e)}
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
 
 @tool("Check Portfolio Constraints")
 def check_constraints_tool() -> dict:

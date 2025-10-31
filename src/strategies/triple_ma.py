@@ -48,7 +48,11 @@ class TripleMovingAverageStrategy(TradingStrategy):
 
         if fast_crossed_above_medium and medium > slow:
             signal = "BUY"
+<<<<<<< HEAD
             confidence = 0.7
+=======
+            confidence = 0.7
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
             logger.info("🟢 BUY signal generated (3MA crossover)")
         elif fast_crossed_below_medium and medium < slow:
             signal = "SELL"

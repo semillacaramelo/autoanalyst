@@ -113,7 +113,11 @@ class MarketScanTools:
             if df.empty or 'volume' not in df.columns:
                 continue
             avg_volume = df['volume'].mean()
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
             liquidity_results.append({
                 "symbol": symbol,
                 "liquidity_score": min(100, (avg_volume / min_volume) * 100), # Score relative to minimum

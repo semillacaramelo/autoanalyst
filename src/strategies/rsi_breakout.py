@@ -24,7 +24,11 @@ class RSIBreakoutStrategy(TradingStrategy):
         """Generate BUY/SELL/HOLD signal based on RSI breakouts."""
         indicators = self.calculate_indicators(df)
         rsi = indicators["rsi"]
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         rsi_latest = rsi.iloc[-1]
         rsi_prev = rsi.iloc[-2]
 
@@ -64,7 +68,11 @@ class RSIBreakoutStrategy(TradingStrategy):
         sma_50_latest = indicators["sma_50"].iloc[-1]
 
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         adx_confirm = adx_latest > 25
         price_confirm = price_latest > sma_50_latest if signal["signal"] == "BUY" else price_latest < sma_50_latest
 
@@ -85,5 +93,9 @@ class RSIBreakoutStrategy(TradingStrategy):
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.2)
             signal["validation"] = "No confirmations met"
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         return signal

@@ -17,7 +17,11 @@ class Backtester:
     def run(self, symbol: str, strategy_name: str, timeframe: str = '1Day') -> Dict:
         """Run a backtest for a single strategy."""
         strategy = get_strategy(strategy_name)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # Fetch data for the entire period
         # Note: This is a simplified backtester. A real one would use a more robust
         # data fetching and slicing mechanism.
@@ -26,7 +30,11 @@ class Backtester:
 
         trades = []
         position = 0 # 1 for long, -1 for short, 0 for flat
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         for i in range(strategy.min_bars_required, len(data)):
             df_slice = data.iloc[:i]
             signal = strategy.generate_signal(df_slice)
@@ -65,7 +73,11 @@ class Backtester:
 
         total_trades = len(trades) // 2
         win_rate = (wins / total_trades) * 100 if total_trades > 0 else 0
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         return {
             "trades": total_trades,
             "pnl": round(pnl, 2),

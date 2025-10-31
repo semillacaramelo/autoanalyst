@@ -8,13 +8,21 @@ import pytz
 
 class MarketCalendar:
     """Tracks global market hours."""
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     MARKETS = {
         "US_EQUITY": {"open": time(9, 30), "close": time(16, 0), "tz": "America/New_York"},
         "EU_EQUITY": {"open": time(8, 0), "close": time(16, 30), "tz": "Europe/London"},
         "CRYPTO": {"open": time(0, 0), "close": time(23, 59, 59), "tz": "UTC"},  # 24/7
     }
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     def get_active_markets(self, timestamp: datetime, target_markets: List[str]) -> List[str]:
         """Return list of currently open markets from the target list."""
         active_markets = []
@@ -23,7 +31,11 @@ class MarketCalendar:
                 market = self.MARKETS[market_name]
                 tz = pytz.timezone(market["tz"])
                 local_time = timestamp.astimezone(tz).time()
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
                 if market["open"] <= local_time <= market["close"]:
                     active_markets.append(market_name)
         return active_markets
@@ -38,10 +50,17 @@ class MarketCalendar:
                 market = self.MARKETS[market_name]
                 tz = pytz.timezone(market["tz"])
                 market_open_time = market["open"]
+<<<<<<< HEAD
 
                 now_local = now.astimezone(tz)
                 today_open = now_local.replace(hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0)
 
+=======
+
+                now_local = now.astimezone(tz)
+                today_open = now_local.replace(hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0)
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
                 if now_local.time() < market_open_time:
                     next_opens.append(today_open)
                 else:

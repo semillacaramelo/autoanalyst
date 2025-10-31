@@ -6,12 +6,26 @@ from crewai import Crew, Process, Task
 from crewai.llm import LLM
 from src.agents.scanner_agents import ScannerAgents
 from src.connectors.gemini_connector import gemini_manager
+<<<<<<< HEAD
+=======
 from src.config.settings import settings
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
 import json
 
 class MarketScannerCrew:
 
     def __init__(self):
+<<<<<<< HEAD
+        llm_client = gemini_manager.get_client()
+        llm = LLM(llm=llm_client, model="gemini/gemini-2.5-flash")
+        agents_factory = ScannerAgents()
+
+        # Define Agents
+        self.volatility_analyzer = agents_factory.volatility_analyzer_agent(llm)
+        self.technical_analyzer = agents_factory.technical_setup_agent(llm)
+        self.liquidity_filter = agents_factory.liquidity_filter_agent(llm)
+        self.chief_analyst = agents_factory.market_intelligence_chief(llm)
+=======
         # Get the resilient client from our custom manager
         resilient_client = gemini_manager.get_client()
 
@@ -28,6 +42,7 @@ class MarketScannerCrew:
         self.technical_analyzer = agents_factory.technical_setup_agent(llm_adapter)
         self.liquidity_filter = agents_factory.liquidity_filter_agent(llm_adapter)
         self.chief_analyst = agents_factory.market_intelligence_chief(llm_adapter)
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
 
     def run(self):
         # Define Tasks
@@ -43,7 +58,11 @@ class MarketScannerCrew:
             agent=self.technical_analyzer,
             context=[fetch_and_analyze_volatility]
         )
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         filter_by_liquidity = Task(
             description="Filter the stocks by liquidity, ensuring they have an average daily volume of at least 1,000,000 shares.",
             expected_output="A list of dictionaries, each containing a symbol and its liquidity status.",

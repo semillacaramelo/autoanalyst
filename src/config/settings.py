@@ -43,14 +43,22 @@ class Settings(BaseSettings):
     log_file: str = Field(default="logs/trading_crew.log")
     rate_limit_rpm: int = Field(default=9, ge=1, le=15)
     rate_limit_rpd: int = Field(default=200, ge=1, le=1000)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     # LLM Configuration
     default_llm_model: str = Field(default="google/gemini-2.5-flash")
     llm_provider: str = Field(default="gemini")
     primary_llm_models: List[str] = Field(default=["gemini-2.5-flash"])
     fallback_llm_models: List[str] = Field(default=["gemini-2.5-pro"])
     key_health_threshold: float = Field(default=0.7)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     # Autonomous Operation
     autonomous_mode_enabled: bool = Field(default=False)
     auto_close_on_error: bool = Field(default=True)

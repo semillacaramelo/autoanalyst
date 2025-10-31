@@ -32,19 +32,31 @@ class MACDCrossoverStrategy(TradingStrategy):
         macd_latest = macd_line.iloc[-1]
         signal_latest = signal_line.iloc[-1]
         histo_latest = histogram.iloc[-1]
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         macd_prev = macd_line.iloc[-2]
         signal_prev = signal_line.iloc[-2]
 
         signal = "HOLD"
         confidence = 0
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # BUY: MACD crosses above Signal line and histogram is positive
         if macd_latest > signal_latest and macd_prev <= signal_prev and histo_latest > 0:
             signal = "BUY"
             confidence = 0.65
             logger.info("🟢 BUY signal generated (MACD Crossover)")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # SELL: MACD crosses below Signal line and histogram is negative
         elif macd_latest < signal_latest and macd_prev >= signal_prev and histo_latest < 0:
             signal = "SELL"
@@ -67,14 +79,22 @@ class MACDCrossoverStrategy(TradingStrategy):
         """Apply volume and RSI momentum confirmation."""
         if signal["signal"] == "HOLD":
             return signal
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         indicators = self.calculate_indicators(df)
         rsi_latest = indicators["rsi"].iloc[-1]
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
 
         # Momentum check
         rsi_confirm = (rsi_latest > 50) if signal["signal"] == "BUY" else (rsi_latest < 50)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         confirmations = []
         if volume_confirm["confirmed"]:
             confirmations.append("Volume")
@@ -88,5 +108,9 @@ class MACDCrossoverStrategy(TradingStrategy):
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
             signal["validation"] = "No confirmation"
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         return signal

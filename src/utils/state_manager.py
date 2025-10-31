@@ -12,18 +12,30 @@ logger = logging.getLogger(__name__)
 
 class StateManager:
     """Persist and recover trading state."""
+<<<<<<< HEAD
 
     def __init__(self, storage_path: Path = Path("data/state.json")):
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(exist_ok=True)
 
+=======
+
+    def __init__(self, storage_path: Path = Path("data/state.json")):
+        self.storage_path = storage_path
+        self.storage_path.parent.mkdir(exist_ok=True)
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     def save_state(self, state: Dict):
         """Atomically save state with backup."""
         backup_path = self.storage_path.with_suffix('.json.bak')
         try:
             if self.storage_path.exists():
                 shutil.copy(self.storage_path, backup_path)
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
             with open(self.storage_path, 'w') as f:
                 json.dump(state, f, indent=2, default=str)
             logger.info(f"Successfully saved state to {self.storage_path}")
@@ -40,7 +52,11 @@ class StateManager:
                     return json.load(f)
             except Exception as e:
                 logger.warning(f"Failed to load main state file: {e}. Trying backup.")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         backup_path = self.storage_path.with_suffix('.json.bak')
         if backup_path.exists():
             try:

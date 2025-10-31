@@ -64,14 +64,22 @@ def run(symbols, strategies, parallel, scan, top, timeframe, limit):
         if parallel:
             console.print("\n[cyan]Running in Parallel Multi-Crew mode...[/cyan]")
             from concurrent.futures import ThreadPoolExecutor
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
             with ThreadPoolExecutor(max_workers=3) as executor:
                 futures = []
                 for symbol in symbol_list:
                     for strategy in strategy_list:
                         console.print(f"  - Submitting job for {symbol} with strategy {strategy}")
                         futures.append(executor.submit(trading_crew.run, symbol=symbol, strategy=strategy, timeframe=timeframe, limit=limit))
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
                 for future in futures:
                     result = future.result()
                     if result['success']:
@@ -104,7 +112,11 @@ def run_single_crew(symbol, strategy, timeframe, limit):
         if not click.confirm("Are you sure you want to execute live trades?"):
             console.print("[yellow]Cancelled by user[/yellow]")
             return
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     try:
         result = trading_crew.run(symbol=symbol, strategy=strategy, timeframe=timeframe, limit=limit)
         if result['success']:
@@ -124,6 +136,19 @@ def scan():
         border_style="cyan"
     ))
     console.print("\n[cyan]Scanning the S&P 100 for trading opportunities...[/cyan]\n")
+<<<<<<< HEAD
+
+    try:
+        raw_result = market_scanner_crew.run()
+        json_string = raw_result.strip().removeprefix("```json").removesuffix("```")
+        scan_data = json.loads(json_string)
+
+        console.print(Panel.fit("[bold green]✓ Market scan completed successfully![/bold green]", border_style="green"))
+        console.print("\n[yellow]Scan Results:[/yellow]")
+        syntax = Syntax(json.dumps(scan_data, indent=2), "json", theme="solarized-dark", line_numbers=True)
+        console.print(syntax)
+
+=======
     
     try:
         raw_result = market_scanner_crew.run()
@@ -135,6 +160,7 @@ def scan():
         syntax = Syntax(json.dumps(scan_data, indent=2), "json", theme="solarized-dark", line_numbers=True)
         console.print(syntax)
 
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     except json.JSONDecodeError:
         console.print(Panel.fit("[bold red]✗ Failed to parse scanner output[/bold red]", border_style="red"))
         console.print("\n[yellow]Raw Output:[/yellow]")
@@ -148,7 +174,11 @@ def scan():
 def status(detailed, recommendations):
     """Check system status and connectivity."""
     console.print(Panel.fit("[bold cyan]System Status Check[/bold cyan]", border_style="cyan"))
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     # Alpaca Status
     console.print("\n[cyan]Alpaca API Status:[/cyan]")
     try:
@@ -193,6 +223,7 @@ def status(detailed, recommendations):
         try:
             from crewai import Agent, Task
             from crewai.llm import LLM
+<<<<<<< HEAD
 
             llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
 
@@ -201,6 +232,16 @@ def status(detailed, recommendations):
             recommender = Agent(role="AI System Health Analyst", goal="Analyze system status and provide recommendations.", backstory="An expert AI.", llm=llm)
             rec_task = Task(description=f"Analyze: {status_summary}", expected_output="Recommendations.", agent=recommender)
 
+=======
+
+            llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
+
+            status_summary = f"Alpaca Account: {account}, Gemini Key Health: {gemini_manager.key_health_tracker.key_health}"
+
+            recommender = Agent(role="AI System Health Analyst", goal="Analyze system status and provide recommendations.", backstory="An expert AI.", llm=llm)
+            rec_task = Task(description=f"Analyze: {status_summary}", expected_output="Recommendations.", agent=recommender)
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
             recommendation_text = rec_task.execute()
             console.print(Panel(recommendation_text, title="[yellow]Recommendations[/yellow]", border_style="yellow"))
         except Exception as e:
@@ -237,7 +278,11 @@ def autonomous():
     console.print(Panel.fit("[bold cyan]Entering 24/7 Autonomous Trading Mode[/bold cyan]", border_style="cyan"))
     if not settings.autonomous_mode_enabled:
         console.print("[yellow]Warning: Autonomous mode is not enabled in settings. Running for one cycle.[/yellow]")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     scheduler = AutoTradingScheduler()
     scheduler.run_forever()
 

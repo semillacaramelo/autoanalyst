@@ -160,7 +160,11 @@ class GeminiConnectionManager:
                         )
                         # Health check: Make a real, lightweight API call
                         client.invoke("hello")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
                         self.key_health_tracker.record_success(api_key)
                         self.request_count += 1
                         logger.info(f"Successfully created and verified Gemini client with model {model_name} and key ...{api_key[-4:]}")

@@ -33,13 +33,21 @@ class BollingerBandsReversalStrategy(TradingStrategy):
 
         signal = "HOLD"
         confidence = 0
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # BUY: Price touches lower band and RSI is oversold
         if price <= lower_band and rsi < 30:
             signal = "BUY"
             confidence = 0.7
             logger.info("🟢 BUY signal generated (Bollinger Lower Band touch + RSI oversold)")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # SELL: Price touches upper band and RSI is overbought
         elif price >= upper_band and rsi > 70:
             signal = "SELL"
@@ -68,10 +76,17 @@ class BollingerBandsReversalStrategy(TradingStrategy):
         """Apply volume, volatility, and candlestick pattern confirmation."""
         if signal["signal"] == "HOLD":
             return signal
+<<<<<<< HEAD
 
         indicators = self.calculate_indicators(df)
         bb_width = indicators["bb_width"]
 
+=======
+
+        indicators = self.calculate_indicators(df)
+        bb_width = indicators["bb_width"]
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # Volatility check: Look for a recent squeeze
         volatility_confirm = bb_width.iloc[-1] > bb_width.rolling(10).min().iloc[-1]
 
@@ -96,5 +111,9 @@ class BollingerBandsReversalStrategy(TradingStrategy):
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
             signal["validation"] = "No confirmation"
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         return signal

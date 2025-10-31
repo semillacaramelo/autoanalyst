@@ -18,7 +18,11 @@ class TradingOrchestrator:
         self.active_crews: Dict[str, TradingCrew] = {}
         self.global_rate_limiter = global_rate_limiter
         self.executor = ThreadPoolExecutor(max_workers=3)  # Parallel crews
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
     def _run_trading_crew(self, symbol: str, strategy: str):
         """Wrapper to run a single trading crew."""
         try:
@@ -32,7 +36,11 @@ class TradingOrchestrator:
     def run_cycle(self):
         """Single trading cycle with parallel execution."""
         logger.info("Starting new trading cycle.")
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # Step 1: Scan market
         logger.info("Running market scanner...")
         scan_results = self.market_scanner.run()
@@ -59,10 +67,17 @@ class TradingOrchestrator:
                     break
             if not self.global_rate_limiter.can_start_crew():
                 break
+<<<<<<< HEAD
 
         # Step 3: Wait for all crews to complete
         results = [f.result() for f in futures]
 
+=======
+
+        # Step 3: Wait for all crews to complete
+        results = [f.result() for f in futures]
+
+>>>>>>> 4fa32c2 (Apply patch /tmp/fa19928c-52d8-47c4-91a0-d51264a9e589.patch)
         # Step 4: Aggregate and log results
         self.log_cycle_summary(results)
 
