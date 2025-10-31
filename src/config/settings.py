@@ -43,17 +43,21 @@ class Settings(BaseSettings):
     log_file: str = Field(default="logs/trading_crew.log")
     rate_limit_rpm: int = Field(default=9, ge=1, le=15)
     rate_limit_rpd: int = Field(default=200, ge=1, le=1000)
+
     # LLM Configuration
-    # Canonical provider-prefixed model identifier expected by LiteLLM/CrewAI
-    default_llm_model: str = Field(default="google/gemini-2.5-flash", description="Provider-prefixed model id, e.g. google/gemini-1.5-flash-latest")
-    # Use 'gemini' as the logical provider token so downstream layers (litellm)
-    # map to the Gemini codepath which prefers API-key based calls when an
-    # API key is present in the environment. Keep compatibility with the
-    # historical 'google' token by allowing either in runtime checks.
-    llm_provider: str = Field(default="gemini", description="LLM provider token used by adapters (e.g., 'gemini' or 'google')")
+    default_llm_model: str = Field(default="google/gemini-2.5-flash")
+    llm_provider: str = Field(default="gemini")
     primary_llm_models: List[str] = Field(default=["gemini-2.5-flash"])
     fallback_llm_models: List[str] = Field(default=["gemini-2.5-pro"])
-    key_health_threshold: float = Field(default=0.7)  # 70% success rate
+    key_health_threshold: float = Field(default=0.7)
+
+    # Autonomous Operation
+    autonomous_mode_enabled: bool = Field(default=False)
+    auto_close_on_error: bool = Field(default=True)
+    max_daily_trades: int = Field(default=10)
+    target_markets: List[str] = Field(default=["US_EQUITY", "CRYPTO"])
+    scan_interval_minutes: int = Field(default=15)
+    adaptive_interval: bool = Field(default=True)
     
     # Development
     dry_run: bool = Field(default=True, description="Don't place real orders")
@@ -95,7 +99,6 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return not self.dry_run
-
 
 # Global settings instance
 settings = Settings()

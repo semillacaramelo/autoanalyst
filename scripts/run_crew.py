@@ -24,6 +24,7 @@ from src.crew.orchestrator import trading_orchestrator
 from src.connectors.alpaca_connector import alpaca_manager
 from src.connectors.gemini_connector import gemini_manager
 from src.utils.backtester import Backtester
+from src.utils.global_scheduler import AutoTradingScheduler
 from src.utils.logger import setup_logging
 
 console = Console()
@@ -231,24 +232,14 @@ def compare(strategies, symbol, start, end):
     console.print(json.dumps(results, indent=2))
 
 @cli.command()
-@click.option('--auto-scan', is_flag=True, help='Automatically run the market scanner at intervals.')
-@click.option('--interval', default=15, help='Interval in minutes for auto-scan.')
-def interactive(auto_scan, interval):
-    """Launch the interactive dashboard for 24/7 monitoring."""
-    console.print(Panel.fit("[bold cyan]Interactive Dashboard[/bold cyan]", border_style="cyan"))
-    
-    def generate_layout() -> Table:
-        layout = Table.grid(expand=True)
-        layout.add_column(ratio=1)
-        layout.add_row("[bold]System Status[/bold]: [green]OK[/green]")
-        layout.add_row("[bold]Active Crews[/bold]: 0")
-        layout.add_row("[bold]Last Scan[/bold]: Never")
-        return layout
+def autonomous():
+    """Launch the system in 24/7 autonomous trading mode."""
+    console.print(Panel.fit("[bold cyan]Entering 24/7 Autonomous Trading Mode[/bold cyan]", border_style="cyan"))
+    if not settings.autonomous_mode_enabled:
+        console.print("[yellow]Warning: Autonomous mode is not enabled in settings. Running for one cycle.[/yellow]")
 
-    with Live(generate_layout(), console=console, screen=True, refresh_per_second=1) as live:
-        while True:
-            # This is a placeholder for the full interactive logic
-            time.sleep(1)
+    scheduler = AutoTradingScheduler()
+    scheduler.run_forever()
 
 @cli.command()
 def validate():

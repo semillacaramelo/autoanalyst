@@ -19,7 +19,7 @@ from collections import deque
 from typing import List, Optional, Dict
 
 from src.config.settings import settings
-from src.crew.orchestrator import trading_orchestrator
+from src.utils.rate_limiter import global_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class GeminiConnectionManager:
                 for model_name in models_to_try:
                     self.rate_limiter.wait_if_needed()
                     try:
-                        trading_orchestrator.global_rate_limiter.register_api_call('gemini')
+                        global_rate_limiter.register_api_call('gemini')
                         client = ChatGoogleGenerativeAI(
                             model=model_name,
                             google_api_key=api_key,

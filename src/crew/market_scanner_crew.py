@@ -2,18 +2,17 @@
 Market Scanner Crew
 This crew is responsible for scanning the market and identifying trading opportunities.
 """
-import os
 from crewai import Crew, Process, Task
 from crewai.llm import LLM
 from src.agents.scanner_agents import ScannerAgents
-from src.config.settings import settings
+from src.connectors.gemini_connector import gemini_manager
+import json
 
 class MarketScannerCrew:
 
     def __init__(self):
-        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
-        llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
-
+        llm_client = gemini_manager.get_client()
+        llm = LLM(llm=llm_client, model="gemini/gemini-2.5-flash")
         agents_factory = ScannerAgents()
 
         # Define Agents
@@ -46,9 +45,10 @@ class MarketScannerCrew:
 
         synthesize_results = Task(
             description="Synthesize the results from the volatility, technical, and liquidity analyses to create a prioritized list of the top 5 trading opportunities.",
-            expected_output="A JSON object containing the top 5 assets to trade, with their scores and recommended strategies.",
+            expected_output="A JSON object containing a 'top_assets' key, which is a list of dictionaries. Each dictionary should have 'symbol', 'priority', scores, 'recommended_strategies', and a 'reason'.",
             agent=self.chief_analyst,
-            context=[analyze_technicals, filter_by_liquidity]
+            context=[analyze_technicals, filter_by_liquidity],
+            output_json=True
         )
 
         # Assemble the Crew
