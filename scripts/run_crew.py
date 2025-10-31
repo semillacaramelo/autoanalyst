@@ -6,11 +6,13 @@ Command-line interface for running the trading crew and market scanner.
 import click
 import json
 import time
+from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.syntax import Syntax
 from rich.live import Live
+from rich.layout import Layout
 from pathlib import Path
 import sys
 
@@ -241,6 +243,95 @@ def autonomous():
 
     scheduler = AutoTradingScheduler()
     scheduler.run_forever()
+
+def get_status_panel() -> Panel:
+    """Returns a Panel with the current system status."""
+    table = Table(show_header=False, box=None)
+    table.add_column("key", style="cyan")
+    table.add_column("value")
+
+    try:
+        account = alpaca_manager.get_account()
+        alpaca_status = f"[green]Connected[/green] (Equity: ${account.get('equity'):,.2f})"
+    except Exception:
+        alpaca_status = "[red]Connection Failed[/red]"
+
+    try:
+        gemini_keys = settings.get_gemini_keys_list()
+        gemini_manager.get_client() # Tries to get a healthy client
+        gemini_status = f"[green]Connected[/green] ({len(gemini_keys)} keys)"
+    except Exception:
+        gemini_status = "[red]Connection Failed[/red]"
+
+    trading_mode = "[bold yellow]DRY RUN[/bold yellow]" if settings.dry_run else "[bold red]LIVE TRADING[/bold red]"
+
+    table.add_row("Alpaca API:", alpaca_status)
+    table.add_row("Gemini API:", gemini_status)
+    table.add_row("Trading Mode:", trading_mode)
+
+    return Panel(table, title="System Status", border_style="green")
+
+
+def get_positions_panel() -> Panel:
+    """Returns a Panel with current open positions."""
+    try:
+        positions = alpaca_manager.get_positions()
+        if not positions:
+            return Panel("[dim]No open positions[/dim]", title="Open Positions", border_style="yellow")
+
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Symbol", style="cyan")
+        table.add_column("Qty", justify="right")
+        table.add_column("P&L", justify="right")
+
+        for pos in positions:
+            pl = pos.get('unrealized_pl', 0.0)
+            pl_str = f"[green]${pl:,.2f}[/green]" if pl >= 0 else f"[red]${pl:,.2f}[/red]"
+            table.add_row(pos['symbol'], str(pos['qty']), pl_str)
+
+        return Panel(table, title="Open Positions", border_style="yellow")
+    except Exception as e:
+        return Panel(f"[red]Error fetching positions: {e}[/red]", title="Open Positions", border_style="red")
+
+
+def generate_dashboard() -> Layout:
+    """Creates the layout for the interactive dashboard."""
+    layout = Layout(name="root")
+
+    layout.split(
+        Layout(name="header", size=3),
+        Layout(ratio=1, name="main"),
+        Layout(size=10, name="footer"),
+    )
+
+    layout["main"].split_row(Layout(name="side"), Layout(name="body", ratio=2))
+    layout["side"].split(Layout(name="status"), Layout(name="positions"))
+    layout["footer"].update(Panel("[dim]Logs will be displayed here in a future enhancement...[/dim]", title="Logs", border_style="blue"))
+    return layout
+
+
+@cli.command()
+def interactive():
+    """Launch the interactive dashboard for real-time monitoring."""
+    layout = generate_dashboard()
+
+    layout["header"].update(
+        Panel(f"[bold green]Talos Algo AI - Interactive Dashboard[/bold green]\nLast updated: {datetime.now().ctime()}", border_style="cyan")
+    )
+    layout["body"].update(Panel("Welcome! System data will refresh every 5 seconds. Press Ctrl+C to exit.", title="Activity", border_style="blue"))
+
+    with Live(layout, screen=True, redirect_stderr=False, refresh_per_second=4) as live:
+        try:
+            while True:
+                time.sleep(5)
+                layout["header"].update(
+                    Panel(f"[bold green]Talos Algo AI - Interactive Dashboard[/bold green]\nLast updated: {datetime.now().ctime()}", border_style="cyan")
+                )
+                layout["status"].update(get_status_panel())
+                layout["positions"].update(get_positions_panel())
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Dashboard stopped by user. Exiting.[/yellow]")
+
 
 @cli.command()
 def validate():

@@ -26,37 +26,40 @@ Connectors in `src/connectors` are critical for interacting with external servic
 
 ## 2. End-to-End & Integration Testing (CLI)
 
-The primary interface for testing and running the system is the Command-Line Interface (CLI) in `scripts/run_crew.py`.
+The primary interface for testing and running the system is the Command-Line Interface (CLI) located at `scripts/run_crew.py`. All operational tasks are managed through this interface.
 
-### Running a Single Trading Crew
-To run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
-```bash
-poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
-```
-
-### Running the Market Scanner
-To run the market scanner and see the top recommended assets:
-```bash
-poetry run python scripts/run_crew.py scan
-```
-
-### Running the Orchestrator with Scanner Input
-To run the full, orchestrated cycle (scan followed by parallel trading crews):
+### Running the Orchestrator (Scan-Then-Trade)
+This command executes a full, orchestrated cycle. It first runs the market scanner to identify the top 3 trading opportunities and then dispatches `TradingCrew` instances to act on them.
 ```bash
 poetry run python scripts/run_crew.py run --scan
 ```
 
-### Checking System Status
-To check the status of API connections and, optionally, get detailed health info and AI recommendations:
+### Running a Single Trading Crew
+To bypass the scanner and run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
 ```bash
-# Basic status
+poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
+```
+
+### Running the Market Scanner Only
+To run the market scanner to see the top recommended assets without executing any trades:
+```bash
+poetry run python scripts/run_crew.py scan
+```
+
+### Checking System Status
+To check the status of API connections and system health.
+```bash
+# Basic status check
 poetry run python scripts/run_crew.py status
 
-# Detailed status with API key health
+# Detailed status including API key health and rate limits
 poetry run python scripts/run_crew.py status --detailed
+```
 
-# Detailed status with AI recommendations
-poetry run python scripts/run_crew.py status --detailed --recommendations
+### Launching the Interactive Dashboard
+To launch a real-time, terminal-based dashboard for live system monitoring:
+```bash
+poetry run python scripts/run_crew.py interactive
 ```
 
 ## 3. Backtesting

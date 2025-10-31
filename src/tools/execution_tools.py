@@ -101,9 +101,9 @@ class ExecutionTools:
             equity = account.get('equity')
             last_equity = account.get('last_equity')
 
-            if last_equity in (None, 0):
+            if not last_equity or float(last_equity) == 0:
                 # Cannot calculate today's P&L reliably; default to 0 and allow trading
-                logger.warning("last_equity missing or zero; skipping daily loss calc")
+                logger.warning("last_equity missing or zero; skipping daily loss limit check.")
                 daily_loss_pct = 0.0
             else:
                 daily_loss_pct = (float(equity) / float(last_equity)) - 1.0

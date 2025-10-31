@@ -16,30 +16,31 @@ A modular, backend-first trading system powered by CrewAI multi-agent framework,
 
 ## 📋 Features
 
-- **Multi-Agent System:** 5 specialized AI agents working in sequence
-- **Proven Strategy:** Enhanced Triple Moving Average (3MA) with confirmation layers
+- **Multi-Agent System:** 4 specialized AI agents working in sequence
+- **Multi-Strategy Framework:** Supports multiple, dynamically selectable trading strategies.
 - **Risk Management:** Portfolio-level constraints and position sizing
 - **Paper Trading:** Safe testing with Alpaca paper trading account
 - **Backtesting:** Test strategies on historical data
 - **CLI Interface:** User-friendly command-line tools
-- **Monitoring:** Real-time system health checks and alerts
+- **Monitoring:** Real-time interactive dashboard and status checks
 
 ---
 
 ## 🏗️ Architecture
 
+The system is composed of a 4-agent crew that works sequentially to analyze market data, generate signals, manage risk, and execute trades.
+
 ```
-Data Collection → Signal Generation → Validation → Risk Management → Execution
-     Agent 1    →      Agent 2      →  Agent 3   →     Agent 4     →  Agent 5
+Data Collection → Signal Generation → Risk Management → Execution
+     Agent 1    →      Agent 2      →     Agent 3     →    Agent 4
 ```
 
 ### Agent Responsibilities
 
-1. **DataCollectorAgent:** Fetches and validates OHLCV market data
-2. **SignalGeneratorAgent:** Calculates 3MA indicators and generates signals
-3. **SignalValidatorAgent:** Applies volume, volatility, and trend confirmations
-4. **RiskManagerAgent:** Enforces position sizing and portfolio constraints
-5. **ExecutionAgent:** Places approved trades via Alpaca API
+1. **DataCollectorAgent:** Fetches and validates OHLCV market data.
+2. **SignalGeneratorAgent:** Applies a selected trading strategy to generate and validate a signal.
+3. **RiskManagerAgent:** Enforces position sizing and portfolio constraints.
+4. **ExecutionAgent:** Places approved trades via the Alpaca API.
 
 ---
 
@@ -101,29 +102,37 @@ DRY_RUN=true  # Safe mode
 LOG_LEVEL=INFO
 ```
 
-### Usage
+### CLI Usage
+The primary way to interact with the bot is through the CLI script `scripts/run_crew.py`.
 
+**1. Check System Status**
+Before running any trading operations, check that all API connections are working.
 ```bash
-# Check system status
 poetry run python scripts/run_crew.py status
-
-# Run single trading crew execution
-poetry run python scripts/run_crew.py run
-
-# Run with custom parameters
-poetry run python scripts/run_crew.py run --symbol QQQ --limit 200
-
-# View all commands
-poetry run python scripts/run_crew.py --help
-
-### Running the Bot in a Loop
-
-To run the trading bot continuously and monitor its status in real-time, use the `main.py` script:
-
-```bash
-# Run for 1 hour with a 60-second interval
-poetry run python main.py
 ```
+
+**2. Run an Orchestrated Cycle (Scan-Then-Trade)**
+This is the standard operational mode. The system will scan the market for opportunities and then execute trades on the top candidates.
+```bash
+poetry run python scripts/run_crew.py run --scan
+```
+
+**3. Run a Specific Trade**
+To bypass the scanner and execute a trade for a single symbol with a specific strategy:
+```bash
+poetry run python scripts/run_crew.py run --symbol NVDA --strategy macd
+```
+
+**4. View All Commands**
+To see the full list of available commands and options:
+```bash
+poetry run python scripts/run_crew.py --help
+```
+
+### Running the Bot in Autonomous Mode
+For 24/7 operation, the bot can be launched in autonomous mode. It will continuously scan the market, execute trades, and manage its state according to the global market calendar.
+```bash
+poetry run python scripts/run_crew.py autonomous
 ```
 
 ---
