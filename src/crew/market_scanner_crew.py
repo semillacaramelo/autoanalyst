@@ -12,9 +12,8 @@ class MarketScannerCrew:
 
     def __init__(self):
         os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
-        llm = LLM(
-            model=f"gemini/{settings.primary_llm_models[0]}"
-        )
+        llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
+
         agents_factory = ScannerAgents()
 
         # Define Agents

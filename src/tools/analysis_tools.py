@@ -62,6 +62,12 @@ class TechnicalAnalysisTools:
         upper_band = sma + (std * std_dev)
         lower_band = sma - (std * std_dev)
         return upper_band, sma, lower_band
+
+    @staticmethod
+    def calculate_bollinger_band_width(df: pd.DataFrame, period=20, std_dev=2, column='close'):
+        """Calculate Bollinger Band Width."""
+        upper, middle, lower = TechnicalAnalysisTools.calculate_bollinger_bands(df, period, std_dev, column)
+        return ((upper - lower) / middle) * 100
     
     @staticmethod
     def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:

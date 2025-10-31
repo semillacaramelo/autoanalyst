@@ -20,6 +20,7 @@ class BollingerBandsReversalStrategy(TradingStrategy):
             "lower_band": lower_band,
             "rsi": TechnicalAnalysisTools.calculate_rsi(df, 14),
             "volume": df['volume'],
+            "bb_width": TechnicalAnalysisTools.calculate_bollinger_band_width(df),
         }
 
     def generate_signal(self, df: pd.DataFrame) -> Dict:
@@ -57,19 +58,43 @@ class BollingerBandsReversalStrategy(TradingStrategy):
             }
         }
 
+    def _is_bullish_candle(self, ohlc: pd.Series) -> bool:
+        return ohlc['close'] > ohlc['open'] and (ohlc['close'] - ohlc['open']) > (ohlc['high'] - ohlc['low']) * 0.6
+
+    def _is_bearish_candle(self, ohlc: pd.Series) -> bool:
+        return ohlc['open'] > ohlc['close'] and (ohlc['open'] - ohlc['close']) > (ohlc['high'] - ohlc['low']) * 0.6
+
     def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply volume and candlestick pattern confirmation."""
+        """Apply volume, volatility, and candlestick pattern confirmation."""
         if signal["signal"] == "HOLD":
             return signal
 
-        # Candlestick pattern detection is complex, so we'll just use volume for now
-        volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
+        indicators = self.calculate_indicators(df)
+        bb_width = indicators["bb_width"]
 
-        if volume_confirm["confirmed"]:
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.2)
-            signal["validation"] = "Volume confirmed"
+        # Volatility check: Look for a recent squeeze
+        volatility_confirm = bb_width.iloc[-1] > bb_width.rolling(10).min().iloc[-1]
+
+        # Candlestick check
+        last_candle = df.iloc[-1]
+        candle_confirm = False
+        if signal["signal"] == "BUY" and self._is_bullish_candle(last_candle):
+            candle_confirm = True
+        elif signal["signal"] == "SELL" and self._is_bearish_candle(last_candle):
+            candle_confirm = True
+
+        confirmations = []
+        if volatility_confirm:
+            confirmations.append("Volatility Expansion")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.1)
+        if candle_confirm:
+            confirmations.append("Candlestick Pattern")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+
+        if confirmations:
+            signal["validation"] = f"{' and '.join(confirmations)} confirmed"
         else:
-            signal["confidence"] = max(0.0, signal["confidence"] - 0.2)
-            signal["validation"] = "Volume not confirmed"
+            signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
+            signal["validation"] = "No confirmation"
 
         return signal

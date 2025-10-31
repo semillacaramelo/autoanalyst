@@ -19,6 +19,7 @@ class MACDCrossoverStrategy(TradingStrategy):
             "signal_line": signal_line,
             "histogram": histogram,
             "volume": df['volume'],
+            "rsi": TechnicalAnalysisTools.calculate_rsi(df, 14),
         }
 
     def generate_signal(self, df: pd.DataFrame) -> Dict:
@@ -63,17 +64,29 @@ class MACDCrossoverStrategy(TradingStrategy):
         }
 
     def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply volume confirmation."""
+        """Apply volume and RSI momentum confirmation."""
         if signal["signal"] == "HOLD":
             return signal
 
+        indicators = self.calculate_indicators(df)
+        rsi_latest = indicators["rsi"].iloc[-1]
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
 
+        # Momentum check
+        rsi_confirm = (rsi_latest > 50) if signal["signal"] == "BUY" else (rsi_latest < 50)
+
+        confirmations = []
         if volume_confirm["confirmed"]:
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.2)
-            signal["validation"] = "Volume confirmed"
+            confirmations.append("Volume")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+        if rsi_confirm:
+            confirmations.append("RSI Momentum")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+
+        if confirmations:
+            signal["validation"] = f"{' and '.join(confirmations)} confirmed"
         else:
-            signal["confidence"] = max(0.0, signal["confidence"] - 0.2)
-            signal["validation"] = "Volume not confirmed"
+            signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
+            signal["validation"] = "No confirmation"
 
         return signal
