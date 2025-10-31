@@ -2,7 +2,6 @@
 Alpaca Markets API Connector
 Handles both Trading and Market Data clients with safety checks
 """
-
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
@@ -14,6 +13,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import logging
 from src.config.settings import settings
+from src.utils.rate_limiter import global_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,7 @@ class AlpacaConnectionManager:
             Dict with keys: equity, buying_power, cash, portfolio_value
         """
         try:
+            global_rate_limiter.register_api_call('alpaca')
             account = self.trading_client.get_account()
             return {
                 "equity": float(account.equity),
@@ -108,6 +109,7 @@ class AlpacaConnectionManager:
             DataFrame with columns: open, high, low, close, volume
         """
         try:
+            global_rate_limiter.register_api_call('alpaca')
             # Improved timeframe parsing
             import re
             timeframe_lower = timeframe.lower()
@@ -188,6 +190,7 @@ class AlpacaConnectionManager:
             }
         
         try:
+            global_rate_limiter.register_api_call('alpaca')
             order_request = MarketOrderRequest(
                 symbol=symbol,
                 qty=qty,
@@ -218,6 +221,7 @@ class AlpacaConnectionManager:
     def get_positions(self) -> list:
         """Get all open positions."""
         try:
+            global_rate_limiter.register_api_call('alpaca')
             positions = self.trading_client.get_all_positions()
             return [
                 {
@@ -237,6 +241,7 @@ class AlpacaConnectionManager:
     def get_recent_orders(self, limit: int = 10) -> list:
         """Get recent closed orders."""
         try:
+            global_rate_limiter.register_api_call('alpaca')
             request = GetOrdersRequest(
                 status=QueryOrderStatus.CLOSED,
                 limit=limit
