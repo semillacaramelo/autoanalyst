@@ -26,37 +26,28 @@ def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100
         crew_context.market_data = result['data']
     return result
 
-@tool("Generate 3MA Signal")
-def generate_3ma_signal_tool() -> dict:
-    """Generate a trading signal using the 3MA strategy."""
-    df = crew_context.market_data
-    if df is not None and not df.empty:
-        return technical_analysis.generate_3ma_signal(df)
-    return {"signal": "HOLD", "error": "No data available"}
+from src.strategies.registry import get_strategy
 
-@tool("Check Volume Confirmation")
-def check_volume_confirmation_tool() -> dict:
-    """Check for volume confirmation."""
-    df = crew_context.market_data
-    if df is not None and not df.empty:
-        return technical_analysis.calculate_volume_confirmation(df)
-    return {"confirmed": False, "error": "No data available"}
+@tool("Generate Trading Signal")
+def generate_signal_tool(strategy_name: str) -> dict:
+    """
+    Generate a trading signal using a specified strategy.
 
-@tool("Check Volatility Range")
-def check_volatility_tool() -> dict:
-    """Check volatility using ATR."""
+    Args:
+        strategy_name: The name of the strategy to use (e.g., '3ma', 'rsi_breakout').
+    """
     df = crew_context.market_data
-    if df is not None and not df.empty:
-        return technical_analysis.calculate_volatility_check(df)
-    return {"acceptable": False, "error": "No data available"}
+    if df is None or df.empty:
+        return {"signal": "HOLD", "error": "No data available"}
 
-@tool("Check Trend Strength")
-def check_trend_strength_tool() -> dict:
-    """Check trend strength using ADX."""
-    df = crew_context.market_data
-    if df is not None and not df.empty:
-        return technical_analysis.calculate_trend_strength(df)
-    return {"has_strong_trend": False, "error": "No data available"}
+    try:
+        strategy = get_strategy(strategy_name)
+        signal = strategy.generate_signal(df)
+        validated_signal = strategy.validate_signal(df, signal)
+        return validated_signal
+    except Exception as e:
+        return {"signal": "HOLD", "error": str(e)}
+
 
 @tool("Check Portfolio Constraints")
 def check_constraints_tool() -> dict:
@@ -91,28 +82,14 @@ class TradingAgents:
     def signal_generator_agent(self, llm) -> Agent:
         return Agent(
             role="Quantitative Technical Analyst",
-            goal="Calculate precise technical indicators and generate trading signals using the 3MA strategy",
-            backstory="A mathematician and technical analysis expert focused on precise calculations.",
-            tools=[generate_3ma_signal_tool],
+            goal="Dynamically apply a selected trading strategy to generate and validate a trading signal",
+            backstory="A flexible analyst capable of applying various quantitative strategies to market data.",
+            tools=[generate_signal_tool],
             llm=llm,
             verbose=True,
             allow_delegation=False
         )
 
-    def signal_validator_agent(self, llm) -> Agent:
-        return Agent(
-            role="Chief Quality Officer",
-            goal="Validate trading signals using multiple confirmation layers (volume, volatility, trend strength)",
-            backstory="A skeptical analyst who trusts no signal until proven by multiple confirmations.",
-            tools=[
-                check_volume_confirmation_tool,
-                check_volatility_tool,
-                check_trend_strength_tool
-            ],
-            llm=llm,
-            verbose=True,
-            allow_delegation=False
-        )
 
     def risk_manager_agent(self, llm) -> Agent:
         return Agent(
