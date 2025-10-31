@@ -2,19 +2,17 @@
 Market Scanner Crew
 This crew is responsible for scanning the market and identifying trading opportunities.
 """
-import os
 from crewai import Crew, Process, Task
 from crewai.llm import LLM
 from src.agents.scanner_agents import ScannerAgents
-from src.config.settings import settings
+from src.connectors.gemini_connector import gemini_manager
 import json
 
 class MarketScannerCrew:
 
     def __init__(self):
-        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
-        llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
-
+        llm_client = gemini_manager.get_client()
+        llm = LLM(llm=llm_client, model="gemini/gemini-2.5-flash")
         agents_factory = ScannerAgents()
 
         # Define Agents

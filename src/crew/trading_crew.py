@@ -104,5 +104,5 @@ class TradingCrew:
                 "strategy": strategy
             }
 
-# Global instance for single runs
+# Global instance
 trading_crew = TradingCrew()

@@ -124,7 +124,7 @@ def scan():
         border_style="cyan"
     ))
     console.print("\n[cyan]Scanning the S&P 100 for trading opportunities...[/cyan]\n")
-    
+
     try:
         raw_result = market_scanner_crew.run()
         json_string = raw_result.strip().removeprefix("```json").removesuffix("```")
