@@ -18,6 +18,12 @@ python -m unittest discover tests
 - **Mocking:** External services (Alpaca, Gemini) should be mocked to ensure tests are fast and repeatable.
 - **Coverage:** Aim for high test coverage on critical logic in the `strategies`, `tools`, and `utils` modules.
 
+### Connector Testing
+Connectors in `src/connectors` are critical for interacting with external services. When writing tests for connectors, ensure the following:
+- **Mock External Libraries:** The actual client libraries (e.g., `alpaca-trade-api`, `langchain-google-genai`) should be mocked at the module level.
+- **Simulate API Failures:** Tests should simulate various API failure modes, such as authentication errors, rate limit errors, and transient server errors.
+- **Verify Resilience:** For connectors that implement resilience logic (e.g., retries, failover), tests must verify that this logic behaves as expected. The test suite for the `GeminiConnectionManager` in `tests/test_connectors/test_gemini_connector.py` is a good example of this.
+
 ## 2. End-to-End & Integration Testing (CLI)
 
 The primary interface for testing and running the system is the Command-Line Interface (CLI) in `scripts/run_crew.py`.
