@@ -3,21 +3,15 @@ Trading Crew Orchestration
 Main crew that executes the complete trading workflow.
 """
 
-import os
 from crewai import Crew, Process
-from crewai.llm import LLM
-
-# Import the factory classes
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
 from src.crew.crew_context import crew_context
 from src.connectors.gemini_connector import gemini_manager
-
 from src.config.settings import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class TradingCrew:
     """
@@ -26,40 +20,30 @@ class TradingCrew:
     """
     
     def __init__(self):
-        # 1. Get a resilient LLM client from the connection manager
         llm_client = gemini_manager.get_client()
-
-        # 2. Instantiate Factories
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
-        # 4. Create Agents
         data_collector_agent = agents_factory.data_collector_agent(llm_client)
         signal_generator_agent = agents_factory.signal_generator_agent(llm_client)
-        signal_validator_agent = agents_factory.signal_validator_agent(llm_client)
         risk_manager_agent = agents_factory.risk_manager_agent(llm_client)
         execution_agent = agents_factory.execution_agent(llm_client)
 
-        # 4. Create Tasks, injecting the Agents and defining context
         collect_data = tasks_factory.collect_data_task(data_collector_agent)
-        generate_signal = tasks_factory.generate_signal_task(signal_generator_agent, context=collect_data)
-        validate_signal = tasks_factory.validate_signal_task(signal_validator_agent, context=generate_signal)
-        assess_risk = tasks_factory.assess_risk_task(risk_manager_agent, context=validate_signal)
-        execute_trade = tasks_factory.execute_trade_task(execution_agent, context=assess_risk)
+        generate_signal = tasks_factory.generate_signal_task(signal_generator_agent, context=[collect_data])
+        assess_risk = tasks_factory.assess_risk_task(risk_manager_agent, context=[generate_signal])
+        execute_trade = tasks_factory.execute_trade_task(execution_agent, context=[assess_risk])
 
-        # 5. Assemble the Crew
         self.crew = Crew(
             agents=[
                 data_collector_agent,
                 signal_generator_agent,
-                signal_validator_agent,
                 risk_manager_agent,
                 execution_agent
             ],
             tasks=[
                 collect_data,
                 generate_signal,
-                validate_signal,
                 assess_risk,
                 execute_trade
             ],
@@ -72,6 +56,7 @@ class TradingCrew:
     def run(
         self,
         symbol: str = None,
+        strategy: str = "3ma",
         timeframe: str = "1Min",
         limit: int = 100
     ) -> dict:
@@ -81,7 +66,7 @@ class TradingCrew:
         if symbol is None:
             symbol = settings.trading_symbol
         
-        logger.info(f"Starting trading crew for {symbol}")
+        logger.info(f"Starting trading crew for {symbol} with strategy {strategy}")
         logger.info(f"Configuration: timeframe={timeframe}, bars={limit}")
         logger.info(f"Mode: {'DRY RUN' if settings.dry_run else 'LIVE TRADING'}")
         
@@ -89,6 +74,7 @@ class TradingCrew:
 
         inputs = {
             "symbol": symbol,
+            "strategy_name": strategy,
             "timeframe": timeframe,
             "limit": limit,
             "ma_fast": settings.ma_fast_period,
@@ -111,6 +97,7 @@ class TradingCrew:
                 "success": True,
                 "result": str(result),
                 "symbol": symbol,
+                "strategy": strategy,
                 "configuration": inputs
             }
         
@@ -119,7 +106,8 @@ class TradingCrew:
             return {
                 "success": False,
                 "error": str(e),
-                "symbol": symbol
+                "symbol": symbol,
+                "strategy": strategy
             }
 
 # Global instance
