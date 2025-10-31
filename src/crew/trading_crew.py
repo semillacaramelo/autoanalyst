@@ -10,22 +10,12 @@ from crewai.llm import LLM
 # Import the factory classes
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
+from src.crew.crew_context import crew_context
 
 from src.config.settings import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class CrewContext:
-    """
-    Shared context object for the trading crew.
-    """
-    def __init__(self):
-        self.market_data = None
-
-# Global singleton instance
-crew_context = CrewContext()
 
 
 class TradingCrew:
