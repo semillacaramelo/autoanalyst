@@ -2,8 +2,9 @@
 Trading Crew Orchestration
 Main crew that executes the complete trading workflow.
 """
-
+import os
 from crewai import Crew, Process
+from crewai.llm import LLM
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
 from src.crew.crew_context import crew_context
@@ -20,14 +21,19 @@ class TradingCrew:
     """
     
     def __init__(self):
-        llm_client = gemini_manager.get_client()
+        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
+        # Let CrewAI manage the LLM instantiation
+        llm = LLM(
+            model=f"gemini/{settings.primary_llm_models[0]}"
+        )
+
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
-        data_collector_agent = agents_factory.data_collector_agent(llm_client)
-        signal_generator_agent = agents_factory.signal_generator_agent(llm_client)
-        risk_manager_agent = agents_factory.risk_manager_agent(llm_client)
-        execution_agent = agents_factory.execution_agent(llm_client)
+        data_collector_agent = agents_factory.data_collector_agent(llm)
+        signal_generator_agent = agents_factory.signal_generator_agent(llm)
+        risk_manager_agent = agents_factory.risk_manager_agent(llm)
+        execution_agent = agents_factory.execution_agent(llm)
 
         collect_data = tasks_factory.collect_data_task(data_collector_agent)
         generate_signal = tasks_factory.generate_signal_task(signal_generator_agent, context=[collect_data])
