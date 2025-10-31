@@ -115,6 +115,15 @@ poetry run python scripts/run_crew.py run --symbol QQQ --limit 200
 
 # View all commands
 poetry run python scripts/run_crew.py --help
+
+### Running the Bot in a Loop
+
+To run the trading bot continuously and monitor its status in real-time, use the `main.py` script:
+
+```bash
+# Run for 1 hour with a 60-second interval
+poetry run python main.py
+```
 ```
 
 ---
