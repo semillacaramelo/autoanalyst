@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # API key is present in the environment. Keep compatibility with the
     # historical 'google' token by allowing either in runtime checks.
     llm_provider: str = Field(default="gemini", description="LLM provider token used by adapters (e.g., 'gemini' or 'google')")
+    primary_llm_models: List[str] = Field(default=["gemini-2.5-flash"])
+    fallback_llm_models: List[str] = Field(default=["gemini-2.5-pro"])
+    key_health_threshold: float = Field(default=0.7)  # 70% success rate
     
     # Development
     dry_run: bool = Field(default=True, description="Don't place real orders")

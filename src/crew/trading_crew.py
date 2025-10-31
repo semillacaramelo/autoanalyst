@@ -11,6 +11,7 @@ from crewai.llm import LLM
 from src.agents.base_agents import TradingAgents
 from src.crew.tasks import TradingTasks
 from src.crew.crew_context import crew_context
+from src.connectors.gemini_connector import gemini_manager
 
 from src.config.settings import settings
 import logging
@@ -25,22 +26,19 @@ class TradingCrew:
     """
     
     def __init__(self):
-        # 1. Set API Key
-        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
+        # 1. Get a resilient LLM client from the connection manager
+        llm_client = gemini_manager.get_client()
 
-        # 2. Instantiate LLM
-        llm = LLM(model="gemini/gemini-2.5-flash")
-
-        # 3. Instantiate Factories
+        # 2. Instantiate Factories
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
 
         # 4. Create Agents
-        data_collector_agent = agents_factory.data_collector_agent(llm)
-        signal_generator_agent = agents_factory.signal_generator_agent(llm)
-        signal_validator_agent = agents_factory.signal_validator_agent(llm)
-        risk_manager_agent = agents_factory.risk_manager_agent(llm)
-        execution_agent = agents_factory.execution_agent(llm)
+        data_collector_agent = agents_factory.data_collector_agent(llm_client)
+        signal_generator_agent = agents_factory.signal_generator_agent(llm_client)
+        signal_validator_agent = agents_factory.signal_validator_agent(llm_client)
+        risk_manager_agent = agents_factory.risk_manager_agent(llm_client)
+        execution_agent = agents_factory.execution_agent(llm_client)
 
         # 4. Create Tasks, injecting the Agents and defining context
         collect_data = tasks_factory.collect_data_task(data_collector_agent)

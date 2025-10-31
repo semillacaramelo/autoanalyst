@@ -3,32 +3,82 @@ Gemini connector and adapter
 
 Provides a centralized factory for creating Gemini LLM adapters that:
 - normalize model identifiers to a provider-prefixed form (google/...)
-- rotate API keys
+- rotate API keys with health tracking and backoff
+- perform smart model fallback
+- handle transient API errors with a robust retry mechanism
 - perform simple rate-limiting checks
-- expose minimal metadata required by CrewAI/LiteLLM (provider, model, model_name)
 
 This is intentionally lightweight — it wraps the LangChain `ChatGoogleGenerativeAI`
 client and exposes a thin adapter with provider metadata so CrewAI can detect
 the provider reliably.
 """
 from __future__ import annotations
-
 import logging
 import time
 from collections import deque
-from itertools import cycle
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from src.config.settings import settings
-import os
 
 logger = logging.getLogger(__name__)
 
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
+    # Using a generic exception to catch potential API errors during health checks
+    from google.api_core.exceptions import GoogleAPICallError
 except Exception:
     # Defer import errors until instantiation time; allow tests to import module
     ChatGoogleGenerativeAI = None  # type: ignore
+    GoogleAPICallError = None # type: ignore
+
+
+class KeyHealthTracker:
+    def __init__(self, api_keys: List[str], health_threshold: float):
+        self.keys = api_keys
+        self.health_threshold = health_threshold
+        self.key_health: Dict[str, Dict] = {
+            key: {"success": 0, "failure": 0, "last_used": 0, "backoff_until": 0}
+            for key in api_keys
+        }
+
+    def _calculate_health_score(self, key: str) -> float:
+        stats = self.key_health[key]
+        total = stats["success"] + stats["failure"]
+        if total == 0:
+            return 1.0  # Optimistically assume new keys are healthy
+        return stats["success"] / total
+
+    def record_success(self, key: str):
+        self.key_health[key]["success"] += 1
+        self.key_health[key]["last_used"] = time.time()
+        # Reset backoff on success
+        self.key_health[key]["backoff_until"] = 0
+
+    def record_failure(self, key: str):
+        stats = self.key_health[key]
+        stats["failure"] += 1
+        stats["last_used"] = time.time()
+        # Increase backoff exponentially, max 60 seconds
+        backoff_duration = min(60, (2 ** (stats["failure"] - 1)))
+        stats["backoff_until"] = time.time() + backoff_duration
+        logger.warning(f"Key ...{key[-4:]} failed. Backing off for {backoff_duration}s.")
+
+    def get_available_keys_sorted(self) -> List[str]:
+        now = time.time()
+        available_keys = [
+            key for key, health in self.key_health.items()
+            if now >= health["backoff_until"] and self._calculate_health_score(key) >= self.health_threshold
+        ]
+
+        if not available_keys:
+            return []
+
+        # Sort by health score, descending
+        return sorted(
+            available_keys,
+            key=lambda k: self._calculate_health_score(k),
+            reverse=True
+        )
 
 
 class RateLimiter:
@@ -40,7 +90,7 @@ class RateLimiter:
 
     def wait_if_needed(self):
         now = time.time()
-        # Clean up
+        # Clean up old entries
         while self.minute_window and now - self.minute_window[0] > 60:
             self.minute_window.popleft()
         while self.day_window and now - self.day_window[0] > 86400:
@@ -63,61 +113,80 @@ class RateLimiter:
 class GeminiConnectionManager:
     def __init__(self,
                  api_keys: Optional[List[str]] = None,
-                 model_name: Optional[str] = None,
                  temperature: float = 0.1):
         self.api_keys = api_keys or settings.get_gemini_keys_list()
         if not self.api_keys:
             raise ValueError("No Gemini API keys configured in settings")
 
-        self._key_cycler = cycle(self.api_keys)
+        self.primary_models = settings.primary_llm_models
+        self.fallback_models = settings.fallback_llm_models
+        self.key_health_tracker = KeyHealthTracker(self.api_keys, settings.key_health_threshold)
         self.temperature = temperature
-        self.model_name = model_name or settings.default_llm_model
         self.rate_limiter = RateLimiter(rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd)
         self.request_count = 0
 
-    def _get_next_key(self) -> str:
-        return next(self._key_cycler)
-
-    def _normalize_model(self, model: str) -> str:
-        # Ensure provider prefix exists (google/...)
-        # Normalize provider prefix to the configured provider token (e.g. 'gemini').
-        # Accept incoming values like 'google/gemini-2.5-flash' or bare ids and
-        # return them as '<provider>/<model-id>' where provider is
-        # `settings.llm_provider` (typically 'gemini').
-        if "/" in model:
-            # Split existing provider and model; replace with configured token
-            _, short = model.split("/", 1)
-            return f"{settings.llm_provider}/{short}"
-        # Accept bare model ids like 'gemini-1.5-flash-latest' or 'models/gemini-...'
-        if model.startswith("gemini") or model.startswith("models/"):
-            short = model
-            if model.startswith("models/"):
-                short = model.split("/", 1)[1]
-            return f"{settings.llm_provider}/{short}"
-        # Fallback: prefix with provider
-        return f"{settings.llm_provider}/{model}"
-
-    def get_llm(self):
-        """Return a LangChain ChatGoogleGenerativeAI instance."""
-        self.rate_limiter.wait_if_needed()
-        api_key = self._get_next_key()
-        self.request_count += 1
-
+    def get_client(self):
+        """
+        Return a LangChain ChatGoogleGenerativeAI instance with failover and key rotation.
+        This method includes a health check by making a real API call.
+        """
         if ChatGoogleGenerativeAI is None:
             raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
 
-        try:
-            # Create the LangChain wrapper client
-            client = ChatGoogleGenerativeAI(
-                model=self.model_name,
-                google_api_key=api_key,
-                temperature=self.temperature,
-                verbose=(settings.log_level == "DEBUG")
-            )
-            return client
-        except Exception as e:
-            logger.error("Failed to instantiate ChatGoogleGenerativeAI: %s", e)
-            raise
+        models_to_try = self.primary_models + self.fallback_models
+        last_exception = None
+        MAX_CYCLES = 3
+
+        for cycle_num in range(MAX_CYCLES):
+            logger.info(f"Starting connection attempt cycle {cycle_num + 1}/{MAX_CYCLES}")
+            available_keys = self.key_health_tracker.get_available_keys_sorted()
+
+            if not available_keys:
+                logger.warning("All API keys are in backoff or unhealthy. Waiting 10s...")
+                time.sleep(10)
+                continue
+
+            for api_key in available_keys:
+                for model_name in models_to_try:
+                    self.rate_limiter.wait_if_needed()
+                    try:
+                        client = ChatGoogleGenerativeAI(
+                            model=model_name,
+                            google_api_key=api_key,
+                            temperature=self.temperature,
+                            verbose=(settings.log_level == "DEBUG")
+                        )
+                        # Health check: Make a real, lightweight API call
+                        client.invoke("hello")
+
+                        self.key_health_tracker.record_success(api_key)
+                        self.request_count += 1
+                        logger.info(f"Successfully created and verified Gemini client with model {model_name} and key ...{api_key[-4:]}")
+                        return client
+
+                    except GoogleAPICallError as e:
+                        logger.warning(
+                            f"API call failed for model {model_name} with key ...{api_key[-4:]}: {e.message}"
+                        )
+                        self.key_health_tracker.record_failure(api_key)
+                        last_exception = e
+                        # If error is auth/permission related, the key is bad. Stop trying models with it.
+                        if e.code in [401, 403, 429]:
+                            logger.error(f"Key ...{api_key[-4:]} is invalid or rate-limited. Moving to next key.")
+                            break # Breaks from the inner model-loop, proceeds to next key
+                        # Otherwise, model might be unavailable, so try next model with same key.
+                        continue
+                    except Exception as e:
+                        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+                        self.key_health_tracker.record_failure(api_key)
+                        last_exception = e
+                        # Break to try a new key on unexpected errors
+                        break
+
+            logger.warning(f"Exhausted all available keys in cycle {cycle_num + 1}. Waiting 60s before retrying.")
+            time.sleep(60)
+
+        raise RuntimeError(f"Failed to get a working Gemini client after {MAX_CYCLES} cycles. Last error: {last_exception}")
 
 # Global singleton
 gemini_manager = GeminiConnectionManager()
