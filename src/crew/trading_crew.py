@@ -79,7 +79,10 @@ class TradingCrew:
             "symbol": symbol,
             "strategy_name": strategy,
             "timeframe": timeframe,
-            "limit": limit
+            "limit": limit,
+            "max_positions": settings.max_open_positions,
+            "max_risk": settings.max_risk_per_trade,
+            "daily_loss": settings.daily_loss_limit,
         }
         
         try:

@@ -32,13 +32,11 @@ def validate_gemini_keys():
     
 	# Live connectivity test: try to obtain an LLM adapter (metadata check)
 	try:
-		adapter = gemini_manager.get_adapter()
-		console.print(f"  Adapter provider: {getattr(adapter,'provider',None)}")
-		console.print(f"  Adapter model: {getattr(adapter,'model',None)}")
-		if getattr(adapter, 'provider', None) != 'google' or not getattr(adapter, 'model', '').startswith('google/'):
-			console.print("  Adapter metadata invalid [red]✗[/red]")
+		client = gemini_manager.get_client()
+		if not client:
+			console.print("  Live test failed: get_client() returned None [red]✗[/red]")
 			return False
-		console.print("  Live test: Gemini adapter created [green]✓[/green]")
+		console.print("  Live test: Gemini client created [green]✓[/green]")
 	except Exception as e:
 		console.print(f"  Live test failed: {e} [red]✗[/red]")
 		return False
