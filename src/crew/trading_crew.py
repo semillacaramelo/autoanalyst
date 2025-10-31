@@ -78,15 +78,7 @@ class TradingCrew:
             "symbol": symbol,
             "strategy_name": strategy,
             "timeframe": timeframe,
-            "limit": limit,
-            "ma_fast": settings.ma_fast_period,
-            "ma_medium": settings.ma_medium_period,
-            "ma_slow": settings.ma_slow_period,
-            "volume_threshold": settings.volume_threshold,
-            "adx_threshold": settings.adx_threshold,
-            "max_positions": settings.max_open_positions,
-            "max_risk": settings.max_risk_per_trade * 100,
-            "daily_loss": settings.daily_loss_limit * 100
+            "limit": limit
         }
         
         try:

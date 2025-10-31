@@ -1,60 +1,87 @@
-# Testing Protocols & Guide
+# Testing & Validation Guide
 
-This document outlines the testing strategy for the AI-Driven Trading Crew project, ensuring reliability, correctness, and robustness.
+This document outlines the testing strategy and operational commands for the Talos Algo AI trading system.
 
 ## 1. Unit Testing
 
 **Framework:** Python's built-in `unittest` module.
 
-**Location:** Unit tests are located in the `tests/` directory, which mirrors the `src/` directory structure. For example, tests for `src/connectors/alpaca_connector.py` are in `tests/test_connectors/test_alpaca_connector.py`.
+**Location:** Unit tests are located in the `tests/` directory, which mirrors the `src/` directory structure.
 
-**Execution:** To run all unit tests, execute the following command from the project root:
+**Execution:**
 ```bash
 python -m unittest discover tests
 ```
 
 **Principles:**
-- **Isolation:** Each test should be independent and not rely on the state of other tests.
-- **Mocking:** External services (like the Alpaca API or the Gemini LLM) should be mocked using `unittest.mock` to ensure tests are fast, repeatable, and don't incur costs.
-- **Coverage:** Aim for high test coverage on critical business logic, especially in the `tools` and `connectors` modules.
+- **Isolation:** Tests should be independent.
+- **Mocking:** External services (Alpaca, Gemini) should be mocked to ensure tests are fast and repeatable.
+- **Coverage:** Aim for high test coverage on critical logic in the `strategies`, `tools`, and `utils` modules.
 
-## 2. Integration Testing
+## 2. End-to-End & Integration Testing (CLI)
 
-**Objective:** To verify the end-to-end functionality of the trading crew, from data fetching to order execution.
+The primary interface for testing and running the system is the Command-Line Interface (CLI) in `scripts/run_crew.py`.
 
-**Environment:** Integration tests should be run against the Alpaca paper trading environment to simulate real-world conditions without risking capital.
-
-**Execution:** Integration tests are typically run manually or as part of a CI/CD pipeline. The main entry point for an end-to-end run is:
+### Running a Single Trading Crew
+To run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
 ```bash
-poetry run python scripts/run_crew.py run --symbol SPY --limit 10
+poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
 ```
 
-**Validation:**
-- Verify that the crew completes a full run without errors.
-- Check the logs in the `logs/` directory for any warnings or unexpected behavior.
-- Confirm that simulated orders appear in the Alpaca paper trading dashboard.
+### Running the Market Scanner
+To run the market scanner and see the top recommended assets:
+```bash
+poetry run python scripts/run_crew.py scan
+```
+
+### Running the Orchestrator with Scanner Input
+To run the full, orchestrated cycle (scan followed by parallel trading crews):
+```bash
+poetry run python scripts/run_crew.py run --scan
+```
+
+### Checking System Status
+To check the status of API connections and, optionally, get detailed health info and AI recommendations:
+```bash
+# Basic status
+poetry run python scripts/run_crew.py status
+
+# Detailed status with API key health
+poetry run python scripts/run_crew.py status --detailed
+
+# Detailed status with AI recommendations
+poetry run python scripts/run_crew.py status --detailed --recommendations
+```
 
 ## 3. Backtesting
 
-**Objective:** To evaluate the historical performance of the trading strategy.
+**Objective:** To evaluate the historical performance of trading strategies.
 
-**Status:** Backtesting is a planned feature and is not yet implemented. When it is, it will involve running the trading strategy against historical market data to calculate key performance metrics.
+**Implementation:** The backtesting engine is located in `src/utils/backtester.py`.
 
-**Key Metrics (to be implemented):**
-- **Win Rate:** Percentage of profitable trades.
-- **Profit Factor:** Gross profit / gross loss.
-- **Max Drawdown:** The largest peak-to-trough decline in portfolio value.
-
-## 4. Coverage & Reporting
-
-**Tool:** `coverage.py` is the recommended tool for measuring test coverage.
-
-**Execution:** To run tests with coverage reporting:
+### Running a Single Backtest
+To backtest a single strategy over a specified time period:
 ```bash
-coverage run -m unittest discover tests
-coverage report -m
+poetry run python scripts/run_crew.py backtest --symbol SPY --strategy 3ma --start 2024-01-01 --end 2024-06-30
 ```
 
-**Goal:** Strive for a minimum of 80% test coverage on all new code.
+### Comparing Multiple Strategies
+To compare the backtested performance of several strategies on the same asset:
+```bash
+poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi_breakout,macd
+```
 
-_Last Updated: 2025-10-30_
+**Key Metrics Calculated:**
+- Total number of trades
+- Net Profit/Loss (P&L)
+- Win Rate (%)
+
+## 4. Autonomous Operation
+
+To launch the system in its 24/7 autonomous mode, use the `autonomous` command. The system will run continuously, respecting market hours, until manually stopped.
+```bash
+poetry run python scripts/run_crew.py autonomous
+```
+
+---
+*Last Updated: 2025-10-31*
