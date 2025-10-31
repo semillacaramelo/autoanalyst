@@ -95,6 +95,8 @@ class AlpacaConnectionManager:
         self,
         symbol: str,
         timeframe: str = "1Min",
+        start: Optional[str] = None,
+        end: Optional[str] = None,
         limit: int = 100
     ) -> pd.DataFrame:
         """
@@ -103,7 +105,9 @@ class AlpacaConnectionManager:
         Args:
             symbol: Stock symbol (e.g., "SPY")
             timeframe: Bar timeframe ("1Min", "5Min", "1Hour", etc.)
-            limit: Number of bars to fetch
+            start: Start date string (YYYY-MM-DD)
+            end: End date string (YYYY-MM-DD)
+            limit: Number of bars to fetch if start/end are not provided
         
         Returns:
             DataFrame with columns: open, high, low, close, volume
@@ -133,15 +137,20 @@ class AlpacaConnectionManager:
             tf = TimeFrame(amount, tf_unit)
             
             # Calculate start/end times
-            end = datetime.now()
-            # Rough estimate: for 1Min bars, go back limit minutes
-            start = end - timedelta(minutes=limit * amount)
+            if start and end:
+                start_dt = pd.to_datetime(start).tz_localize('America/New_York')
+                end_dt = pd.to_datetime(end).tz_localize('America/New_York')
+            else:
+                end_dt = datetime.now()
+                # Rough estimate: for 1Min bars, go back limit minutes
+                start_dt = end_dt - timedelta(minutes=limit * amount)
+
             
             request_params = StockBarsRequest(
                 symbol_or_symbols=[symbol],
                 timeframe=tf,
-                start=start,
-                end=end
+                start=start_dt,
+                end=end_dt
             )
             
             bars = self.data_client.get_stock_bars(request_params)
@@ -152,7 +161,7 @@ class AlpacaConnectionManager:
                 df = df.reset_index(level=0, drop=True)
             
             logger.info(
-                f"Fetched {len(df)} bars for {symbol} ({timeframe})"
+                f"Fetched {len(df)} bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}"
             )
             return df
         
