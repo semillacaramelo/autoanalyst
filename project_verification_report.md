@@ -10,9 +10,9 @@ This report verifies the implementation of the Talos Algo AI project against the
     *   **Finding:** The `TradingCrew` in `src/crew/trading_crew.py` has been refactored to use the `GeminiConnectionManager`, resolving the previous inconsistency. Both the `TradingCrew` and `MarketScannerCrew` now use the same production-grade connector.
     *   **Severity:** N/A (Previously CRITICAL).
 
-*   **Issue 2: Backtesting Engine Limitations (Confirmed)**
-    *   **Finding:** The backtester in `src/utils/backtester.py` is a simplified, non-event-driven implementation. It loads the entire dataset into memory and calculates only basic performance metrics (PnL, win rate).
-    *   **Severity:** HIGH. The current backtester is not suitable for realistic strategy evaluation and is prone to lookahead bias.
+*   **Issue 2: Backtesting Engine Limitations (Resolved)**
+    *   **Finding:** The backtester in `src/utils/backtester_v2.py` has been re-implemented as an event-driven engine. It now processes data bar-by-bar to prevent lookahead bias, includes slippage and commission modeling, and calculates advanced performance metrics (Sharpe, Sortino, Calmar, Max Drawdown). The CLI has been updated to use this new version.
+    *   **Severity:** N/A (Previously HIGH).
 
 *   **Issue 3: Insufficient Unit Test Coverage (Confirmed)**
     *   **Finding:** The test file for the `GeminiConnectionManager`, `tests/test_connectors/test_gemini_connector.py`, is **missing**. There is no test coverage for the production-grade LLM connector's key features.
@@ -31,8 +31,8 @@ This report verifies the implementation of the Talos Algo AI project against the
 *   **Phase 1: Restore Production-Grade LLM Infrastructure (Implemented)**
     *   The `GeminiConnectionManager` is now consistently integrated across all crews.
 
-*   **Phase 2: Enhance Backtesting Engine (Not Implemented)**
-    *   The backtesting engine remains in its simplified, initial state.
+*   **Phase 2: Enhance Backtesting Engine (Implemented)**
+    *   The backtesting engine has been replaced with a robust, event-driven implementation that includes advanced performance metrics and realistic cost modeling.
 
 *   **Phase 3: Comprehensive Test Coverage Implementation (Not Implemented)**
     *   Test coverage is insufficient, particularly for critical components like the Gemini connector.
