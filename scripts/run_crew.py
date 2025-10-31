@@ -23,7 +23,7 @@ from src.crew.market_scanner_crew import market_scanner_crew
 from src.crew.orchestrator import trading_orchestrator
 from src.connectors.alpaca_connector import alpaca_manager
 from src.connectors.gemini_connector import gemini_manager
-from src.utils.backtester import Backtester
+from src.utils.backtester_v2 import BacktesterV2
 from src.utils.global_scheduler import AutoTradingScheduler
 from src.utils.logger import setup_logging
 
@@ -214,7 +214,7 @@ def status(detailed, recommendations):
 def backtest(strategy, symbol, start, end):
     """Run a historical backtest for a single strategy."""
     console.print(Panel.fit(f"[bold cyan]Backtesting {strategy} on {symbol}[/bold cyan]", border_style="cyan"))
-    backtester = Backtester(start_date=start, end_date=end)
+    backtester = BacktesterV2(start_date=start, end_date=end)
     results = backtester.run(symbol, strategy)
     console.print(json.dumps(results, indent=2))
 
@@ -226,7 +226,7 @@ def backtest(strategy, symbol, start, end):
 def compare(strategies, symbol, start, end):
     """Compare the performance of multiple strategies."""
     console.print(Panel.fit(f"[bold cyan]Comparing Strategies on {symbol}[/bold cyan]", border_style="cyan"))
-    backtester = Backtester(start_date=start, end_date=end)
+    backtester = BacktesterV2(start_date=start, end_date=end)
     strategy_list = strategies.split(',')
     results = backtester.compare(symbol, strategy_list)
     console.print(json.dumps(results, indent=2))

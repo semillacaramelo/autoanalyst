@@ -19,10 +19,12 @@ The engine for 24/7 autonomous operation. Its responsibilities include:
 - Calling the `TradingOrchestrator` to execute a cycle.
 - Persisting system state with the `StateManager`.
 
-### `src.utils.backtester.Backtester`
+### `src.utils.backtester_v2.BacktesterV2`
 A utility for running historical simulations of trading strategies.
 - Used by the `backtest` and `compare` CLI commands.
-- Fetches historical data and simulates trades to calculate performance metrics like P&L and win rate.
+- Implements an event-driven architecture to prevent lookahead bias.
+- Models slippage and commissions for more realistic results.
+- Fetches historical data and simulates trades to calculate advanced performance metrics like Sharpe Ratio, Sortino Ratio, Calmar Ratio, and Max Drawdown.
 
 ### `src.strategies` Module
 This module contains the pluggable trading strategies. All strategies inherit from the `TradingStrategy` abstract base class and implement a consistent interface.

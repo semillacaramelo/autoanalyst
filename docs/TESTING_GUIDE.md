@@ -57,7 +57,7 @@ poetry run python scripts/run_crew.py status --detailed --recommendations
 
 **Objective:** To evaluate the historical performance of trading strategies.
 
-**Implementation:** The backtesting engine is located in `src/utils/backtester.py`.
+**Implementation:** The event-driven backtesting engine is located in `src/utils/backtester_v2.py`.
 
 ### Running a Single Backtest
 To backtest a single strategy over a specified time period:
@@ -75,10 +75,14 @@ poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi
 - Total number of trades
 - Net Profit/Loss (P&L)
 - Win Rate (%)
+- Sharpe Ratio
+- Sortino Ratio
+- Calmar Ratio
+- Maximum Drawdown
 
 ## 4. Autonomous Operation
 
-To launch the system in its 24/7 autonomous mode, use the `autonomous` command. The system will run continuously, respecting market hours, until manually stopped.
+To launch the system in its 20/7 autonomous mode, use the `autonomous` command. The system will run continuously, respecting market hours, until manually stopped.
 ```bash
 poetry run python scripts/run_crew.py autonomous
 ```
