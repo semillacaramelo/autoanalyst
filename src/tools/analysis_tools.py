@@ -101,74 +101,7 @@ class TechnicalAnalysisTools:
         
         return adx
     
-    @staticmethod
-    def generate_3ma_signal(df: pd.DataFrame) -> Dict:
-        """
-        Generate trading signal using Triple Moving Average strategy.
-        
-        Strategy:
-        - BUY: Fast MA crosses above Medium MA AND Medium MA > Slow MA
-        - SELL: Fast MA crosses below Medium MA AND Medium MA < Slow MA
-        - HOLD: Any other condition
-        
-        Args:
-            df: OHLCV DataFrame
-        
-        Returns:
-            Dict with signal and indicator values
-        """
-        try:
-            # Calculate EMAs using configured periods
-            fast_ma = TechnicalAnalysisTools.calculate_ema(
-                df, settings.ma_fast_period
-            )
-            medium_ma = TechnicalAnalysisTools.calculate_ema(
-                df, settings.ma_medium_period
-            )
-            slow_ma = TechnicalAnalysisTools.calculate_ema(
-                df, settings.ma_slow_period
-            )
-            
-            # Get latest values
-            fast = fast_ma.iloc[-1]
-            medium = medium_ma.iloc[-1]
-            slow = slow_ma.iloc[-1]
-            
-            # Previous values for crossover detection
-            fast_prev = fast_ma.iloc[-2] if len(fast_ma) > 1 else fast
-            medium_prev = medium_ma.iloc[-2] if len(medium_ma) > 1 else medium
-            
-            # Detect crossovers
-            fast_crossed_above_medium = (fast > medium) and (fast_prev <= medium_prev)
-            fast_crossed_below_medium = (fast < medium) and (fast_prev >= medium_prev)
-            
-            # Generate signal
-            signal = "HOLD"
-            
-            if fast_crossed_above_medium and medium > slow:
-                signal = "BUY"
-                logger.info("🟢 BUY signal generated (3MA crossover)")
-            elif fast_crossed_below_medium and medium < slow:
-                signal = "SELL"
-                logger.info("🔴 SELL signal generated (3MA crossover)")
-            
-            return {
-                "signal": signal,
-                "fast_ma": float(fast),
-                "medium_ma": float(medium),
-                "slow_ma": float(slow),
-                "current_price": float(df['close'].iloc[-1]),
-                "fast_crossed_above": fast_crossed_above_medium,
-                "fast_crossed_below": fast_crossed_below_medium,
-                "timestamp": str(df.index[-1])
-            }
-        
-        except Exception as e:
-            logger.error(f"Failed to generate 3MA signal: {e}")
-            return {
-                "signal": "HOLD",
-                "error": str(e)
-            }
+    # Strategy-specific logic removed. Use strategy classes in src/strategies/.
     
     @staticmethod
     def calculate_volume_confirmation(df: pd.DataFrame, threshold: float = None) -> Dict:

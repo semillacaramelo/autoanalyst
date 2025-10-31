@@ -26,12 +26,15 @@ def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100
         crew_context.market_data = result['data']
     return result
 
-@tool("Generate 3MA Signal")
-def generate_3ma_signal_tool() -> dict:
-    """Generate a trading signal using the 3MA strategy."""
+from src.strategies.registry import get_strategy
+
+@tool("Generate Signal")
+def generate_signal_tool(strategy_name: str = "3ma") -> dict:
+    """Generate a trading signal using the selected strategy."""
     df = crew_context.market_data
     if df is not None and not df.empty:
-        return technical_analysis.generate_3ma_signal(df)
+        strategy = get_strategy(strategy_name)
+        return strategy.generate_signal(df)
     return {"signal": "HOLD", "error": "No data available"}
 
 @tool("Check Volume Confirmation")
@@ -88,12 +91,12 @@ class TradingAgents:
             allow_delegation=False
         )
 
-    def signal_generator_agent(self, llm) -> Agent:
+    def signal_generator_agent(self, llm, strategy_name: str = "3ma") -> Agent:
         return Agent(
             role="Quantitative Technical Analyst",
-            goal="Calculate precise technical indicators and generate trading signals using the 3MA strategy",
+            goal=f"Calculate precise technical indicators and generate trading signals using the {strategy_name.upper()} strategy",
             backstory="A mathematician and technical analysis expert focused on precise calculations.",
-            tools=[generate_3ma_signal_tool],
+            tools=[generate_signal_tool],
             llm=llm,
             verbose=True,
             allow_delegation=False

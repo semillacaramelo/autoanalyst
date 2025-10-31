@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # LLM Configuration
     # Canonical provider-prefixed model identifier expected by LiteLLM/CrewAI
     default_llm_model: str = Field(default="google/gemini-2.5-flash", description="Provider-prefixed model id, e.g. google/gemini-1.5-flash-latest")
+    primary_llm_models: List[str] = Field(default_factory=lambda: ["gemini-2.5-flash", "gemini-2.5-flash-latest"])
+    fallback_llm_models: List[str] = Field(default_factory=lambda: ["gemini-2.5-pro", "gemini-2.5-pro-latest"])
+    key_health_threshold: float = Field(default=0.7, description="Minimum success rate for key to be considered healthy")
     # Use 'gemini' as the logical provider token so downstream layers (litellm)
     # map to the Gemini codepath which prefers API-key based calls when an
     # API key is present in the environment. Keep compatibility with the
@@ -56,6 +59,14 @@ class Settings(BaseSettings):
     dry_run: bool = Field(default=True, description="Don't place real orders")
     cache_enabled: bool = Field(default=True)
     cache_ttl: int = Field(default=300, ge=0)
+
+    # Autonomous Operation
+    autonomous_mode_enabled: bool = Field(default=False)
+    auto_close_on_error: bool = Field(default=True)
+    max_daily_trades: int = Field(default=10)
+    target_markets: List[str] = Field(default_factory=lambda: ["US_EQUITY", "CRYPTO"])
+    scan_interval_minutes: int = Field(default=15)
+    adaptive_interval: bool = Field(default=True)
     
     @validator("gemini_api_keys")
     def validate_api_keys(cls, v):
