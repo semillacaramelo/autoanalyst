@@ -4,9 +4,25 @@ This crew is responsible for scanning the market and identifying trading opportu
 """
 from crewai import Crew, Process, Task
 from crewai.llm import LLM
+from pydantic import BaseModel, Field
+from typing import List
 from src.agents.scanner_agents import ScannerAgents
 from src.connectors.gemini_connector import gemini_manager
 import json
+
+
+class AssetAnalysis(BaseModel):
+    """Pydantic model for a single asset analysis."""
+    symbol: str = Field(..., description="The stock symbol.")
+    priority: int = Field(..., description="The priority of the asset for trading.")
+    scores: dict = Field(..., description="A dictionary of scores (volatility, technical, liquidity).")
+    recommended_strategies: List[str] = Field(..., description="A list of recommended trading strategies.")
+    reason: str = Field(..., description="The reasoning behind the recommendation.")
+
+class TopAssetsResponse(BaseModel):
+    """Pydantic model for the top assets response."""
+    top_assets: List[AssetAnalysis] = Field(..., description="A list of the top assets to trade.")
+
 
 class MarketScannerCrew:
 
@@ -48,7 +64,7 @@ class MarketScannerCrew:
             expected_output="A JSON object containing a 'top_assets' key, which is a list of dictionaries. Each dictionary should have 'symbol', 'priority', scores, 'recommended_strategies', and a 'reason'.",
             agent=self.chief_analyst,
             context=[analyze_technicals, filter_by_liquidity],
-            output_json=True
+            output_json=TopAssetsResponse
         )
 
         # Assemble the Crew
