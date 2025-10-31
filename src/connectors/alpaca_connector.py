@@ -151,7 +151,8 @@ class AlpacaConnectionManager:
                 symbol_or_symbols=[symbol],
                 timeframe=tf,
                 start=start_dt,
-                end=end_dt
+                end=end_dt,
+                feed=settings.alpaca_data_feed
             )
             
             bars = self.data_client.get_stock_bars(request_params)
