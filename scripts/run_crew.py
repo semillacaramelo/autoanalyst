@@ -191,17 +191,18 @@ def status(detailed, recommendations):
     if recommendations:
         console.print("\n[cyan]Generating AI Recommendations...[/cyan]")
         try:
-            from crewai import Agent, Task
+            from crewai import Agent, Task, Crew
             from crewai.llm import LLM
 
             llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
 
             status_summary = f"Alpaca Account: {account}, Gemini Key Health: {gemini_manager.key_health_tracker.key_health}"
 
-            recommender = Agent(role="AI System Health Analyst", goal="Analyze system status and provide recommendations.", backstory="An expert AI.", llm=llm)
+            recommender = Agent(role="AI System Health Analyst", goal="Analyze system status and provide recommendations.", backstory="An expert AI.", llm=llm, verbose=False)
             rec_task = Task(description=f"Analyze: {status_summary}", expected_output="Recommendations.", agent=recommender)
 
-            recommendation_text = rec_task.execute()
+            recommendation_crew = Crew(agents=[recommender], tasks=[rec_task], verbose=False)
+            recommendation_text = str(recommendation_crew.kickoff())
             console.print(Panel(recommendation_text, title="[yellow]Recommendations[/yellow]", border_style="yellow"))
         except Exception as e:
             console.print(f"  [red]✗ Failed to generate recommendations: {e}[/red]")
