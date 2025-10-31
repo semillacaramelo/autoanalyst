@@ -64,13 +64,19 @@ class MACDCrossoverStrategy(TradingStrategy):
         }
 
     def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply volume and RSI momentum confirmation."""
+        """Apply volume, RSI, and MACD divergence confirmation."""
         if signal["signal"] == "HOLD":
             return signal
 
         indicators = self.calculate_indicators(df)
         rsi_latest = indicators["rsi"].iloc[-1]
+        histogram = indicators["histogram"]
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
+
+        # Divergence check
+        divergence = TechnicalAnalysisTools.detect_macd_divergence(df, histogram)
+        divergence_confirm = (divergence["type"] == "bullish" and signal["signal"] == "BUY") or \
+                             (divergence["type"] == "bearish" and signal["signal"] == "SELL")
 
         # Momentum check
         rsi_confirm = (rsi_latest > 50) if signal["signal"] == "BUY" else (rsi_latest < 50)
@@ -78,10 +84,15 @@ class MACDCrossoverStrategy(TradingStrategy):
         confirmations = []
         if volume_confirm["confirmed"]:
             confirmations.append("Volume")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.10)
         if rsi_confirm:
             confirmations.append("RSI Momentum")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.10)
+        if divergence_confirm:
+            confirmations.append(f"MACD {divergence['type'].capitalize()} Divergence")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.25)
+            signal["details"]["divergence_description"] = divergence["description"]
+
 
         if confirmations:
             signal["validation"] = f"{' and '.join(confirmations)} confirmed"

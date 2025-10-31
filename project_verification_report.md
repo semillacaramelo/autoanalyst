@@ -18,9 +18,9 @@ This report verifies the implementation of the Talos Algo AI project against the
     *   **Finding:** The test file for the `GeminiConnectionManager`, `tests/test_connectors/test_gemini_connector.py`, has been **implemented**. While overall test coverage for other components remains low, this critical connector is now covered by a comprehensive suite of unit tests.
     *   **Severity:** MEDIUM (Previously HIGH). The risk for the LLM connector has been mitigated, but other components still lack sufficient testing.
 
-*   **Issue 4: Simplified Strategy Validation Logic (Confirmed)**
-    *   **Finding:** The strategy implementations in `src/strategies/` lack the advanced validation logic outlined in the roadmap. The `MACDCrossoverStrategy` does not include MACD divergence detection, and the `BollingerBandsReversalStrategy` uses a highly simplified form of candlestick pattern recognition.
-    *   **Severity:** MEDIUM. The strategies are likely to generate more false signals than intended, leading to suboptimal performance.
+*   **Issue 4: Simplified Strategy Validation Logic (Resolved)**
+    *   **Finding:** The strategy validation logic has been significantly enhanced. The `MACDCrossoverStrategy` in `src/strategies/macd_crossover.py` now includes MACD divergence detection, and the `BollingerBandsReversalStrategy` in `src/strategies/bollinger_bands_reversal.py` has been updated with robust candlestick pattern recognition (Hammer, Shooting Star, Engulfing patterns).
+    *   **Severity:** N/A (Previously MEDIUM).
 
 *   **Issue 5: Missing Agent from Original Design (Confirmed and Documented)**
     *   **Finding:** The `SignalValidatorAgent` is absent from the current architecture, and its responsibilities have been integrated into the `SignalGeneratorAgent` and the individual strategy classes.
