@@ -1,6 +1,6 @@
 """
 Task Definitions for the Trading Crew
-This file defines a class that creates and configures all tasks for the agents.
+This file defines a class that creates and new_configs all tasks for the agents.
 """
 
 from crewai import Task
@@ -24,37 +24,15 @@ class TradingTasks:
 
     def generate_signal_task(self, agent, context) -> Task:
         return Task(
-            description="""Analyze the market data from the previous step and generate a trading signal using the 3MA strategy.
+            description="""Analyze the market data from the previous step and generate a trading signal using the '{strategy_name}' strategy.
             
-            Strategy Rules:
-            - Calculate Fast ({ma_fast}), Medium ({ma_medium}), and Slow ({ma_slow}) EMAs.
-            - BUY Signal: Fast MA crosses above Medium MA AND Medium MA > Slow MA.
-            - SELL Signal: Fast MA crosses below Medium MA AND Medium MA < Slow MA.
-            - HOLD: Any other condition.
+            The tool will handle the specific rules of the chosen strategy, including signal generation and validation.
             
-            Clearly explain your reasoning and the indicator values.""",
-            expected_output="""A dictionary with the trading signal ('BUY', 'SELL', or 'HOLD') and the calculated moving average values.""",
+            Your role is to ensure the correct strategy name is passed to the tool and to clearly report the results provided.
+            """,
+            expected_output="""A dictionary with the final validated signal ('BUY', 'SELL', or 'HOLD'), the confidence level, and detailed results from the strategy's execution.""",
             agent=agent,
-            context=[context]
-        )
-
-    def validate_signal_task(self, agent, context) -> Task:
-        return Task(
-            description="""Validate the generated signal using multiple confirmation layers.
-            
-            Confirmation Checks:
-            1. Volume: Current volume > {volume_threshold}x average.
-            2. Volatility: ATR is within an acceptable range (e.g., 0.3 - 2.0).
-            3. Trend Strength: ADX > {adx_threshold}.
-            
-            Rules:
-            - A BUY or SELL signal requires at least 2 out of 3 confirmations to pass.
-            - If confirmations are not met, the signal must be overridden to HOLD.
-            
-            Provide detailed reasoning for the final decision.""",
-            expected_output="""A dictionary with the final validated signal ('BUY', 'SELL', or 'HOLD'), a list of the confirmations that passed, and a reason if the signal was overridden.""",
-            agent=agent,
-            context=[context]
+            context=context
         )
 
     def assess_risk_task(self, agent, context) -> Task:
@@ -74,7 +52,7 @@ class TradingTasks:
             Provide a clear approval or rejection decision with reasoning.""",
             expected_output="""A dictionary indicating whether the trade is approved, the calculated position size (in shares), and the status of all risk checks.""",
             agent=agent,
-            context=[context]
+            context=context
         )
 
     def execute_trade_task(self, agent, context) -> Task:
@@ -88,5 +66,5 @@ class TradingTasks:
             In DRY_RUN mode, simulate the order and log what would have been executed.""",
             expected_output="""A dictionary summarizing the execution status ('SUCCESS', 'SKIPPED', 'FAILED'), including the order ID (or a simulation notice) and trade details.""",
             agent=agent,
-            context=[context]
+            context=context
         )
