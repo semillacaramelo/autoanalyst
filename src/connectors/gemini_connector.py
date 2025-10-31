@@ -170,10 +170,10 @@ class GeminiConnectionManager:
                         logger.warning(
                             f"API call failed for model {model_name} with key ...{api_key[-4:]}: {e.message}"
                         )
-                        self.key_health_tracker.record_failure(api_key)
                         last_exception = e
-                        # If error is auth/permission related, the key is bad. Stop trying models with it.
+                        # If error is auth/permission related, the key is bad. Record failure and stop trying models with it.
                         if e.code in [401, 403, 429]:
+                            self.key_health_tracker.record_failure(api_key)
                             logger.error(f"Key ...{api_key[-4:]} is invalid or rate-limited. Moving to next key.")
                             break # Breaks from the inner model-loop, proceeds to next key
                         # Otherwise, model might be unavailable, so try next model with same key.
