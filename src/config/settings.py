@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, validator
 from typing import List, Literal
 import os
+import threading
 
 
 class Settings(BaseSettings):
@@ -68,6 +69,11 @@ class Settings(BaseSettings):
     cache_enabled: bool = Field(default=True)
     cache_ttl: int = Field(default=300, ge=0)
     
+    def __init__(self, **data):
+        """Initialize settings and thread-safe lock for caching."""
+        super().__init__(**data)
+        self._keys_lock = threading.Lock()
+    
     @validator("gemini_api_keys")
     def validate_api_keys(cls, v):
         """Ensure at least one API key is provided."""
@@ -87,8 +93,24 @@ class Settings(BaseSettings):
         return v
     
     def get_gemini_keys_list(self) -> List[str]:
-        """Return Gemini API keys as a list."""
-        return [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+        """
+        Return Gemini API keys as a list.
+        
+        Parses comma-separated API keys from configuration.
+        Results are cached since keys don't change during runtime.
+        Thread-safe implementation.
+        
+        Returns:
+            List of API key strings, with whitespace stripped
+        """
+        # Cache the parsed keys to avoid repeated string processing
+        if not hasattr(self, '_cached_keys'):
+            with self._keys_lock:
+                # Double-check: another thread might have cached while we waited
+                if not hasattr(self, '_cached_keys'):
+                    self._cached_keys = [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+        
+        return self._cached_keys
 
     @validator("default_llm_model")
     def validate_default_model_format(cls, v):
