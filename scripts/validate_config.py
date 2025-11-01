@@ -51,7 +51,9 @@ def validate_alpaca_connection():
         acct = alpaca_manager.get_account()
         console.print(f"  Base URL: {settings.alpaca_base_url} [green]✓[/green]")
         console.print(f"  Mode: {'Paper Trading' if alpaca_manager.is_paper else 'LIVE TRADING'} [green]✓[/green]")
-        console.print(f"  Account Status: {acct.get('status')} (Equity: ${acct.get('equity'):,.2f}) [green]✓[/green]")
+        equity = acct.get('equity')
+        equity_str = f"${equity:,.2f}" if isinstance(equity, (int, float)) else ("N/A" if equity is not None else "N/A")
+        console.print(f"  Account Status: {acct.get('status')} (Equity: {equity_str}) [green]✓[/green]")
         return True
     except Exception as e:
         console.print(f"  Live test failed: {e} [red]✗[/red]")

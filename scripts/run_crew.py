@@ -253,7 +253,12 @@ def get_status_panel() -> Panel:
 
     try:
         account = alpaca_manager.get_account()
-        alpaca_status = f"[green]Connected[/green] (Equity: ${account.get('equity'):,.2f})"
+        equity = account.get('equity')
+        if equity is None:
+            equity_str = "N/A"
+        else:
+            equity_str = f"${float(equity):,.2f}"
+        alpaca_status = f"[green]Connected[/green] (Equity: {equity_str})"
     except Exception:
         alpaca_status = "[red]Connection Failed[/red]"
 

@@ -58,9 +58,9 @@ class BollingerBandsReversalStrategy(TradingStrategy):
             }
         }
 
-    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, _data_feed: str) -> Dict:
         """Apply volatility and advanced candlestick pattern confirmation."""
-        # Note: This strategy is not volume-dependent, so the data_feed parameter is unused
+        # Note: This strategy is not volume-dependent, so the _data_feed parameter is unused
         # but required by the interface contract.
         if signal["signal"] == "HOLD":
             return signal

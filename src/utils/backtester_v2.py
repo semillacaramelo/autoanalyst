@@ -1,7 +1,6 @@
 """
 Backtesting Engine V2 - Event-Driven
 """
-import pandas as pd
 import numpy as np
 from typing import List, Dict
 from src.connectors.alpaca_connector import alpaca_manager
