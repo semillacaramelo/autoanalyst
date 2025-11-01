@@ -28,12 +28,6 @@ Connectors in `src/connectors` are critical for interacting with external servic
 
 The primary interface for testing and running the system is the Command-Line Interface (CLI) located at `scripts/run_crew.py`. All operational tasks are managed through this interface.
 
-### Running the Orchestrator (Scan-Then-Trade)
-This command executes a full, orchestrated cycle. It first runs the market scanner to identify the top 3 trading opportunities and then dispatches `TradingCrew` instances to act on them.
-```bash
-poetry run python scripts/run_crew.py run --scan
-```
-
 ### Running a Single Trading Crew
 To bypass the scanner and run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
 ```bash
@@ -61,6 +55,7 @@ To launch a real-time, terminal-based dashboard for live system monitoring:
 ```bash
 poetry run python scripts/run_crew.py interactive
 ```
+**Note:** This command is intended for real-time monitoring and will not produce a static output file.
 
 ## 3. Backtesting
 
@@ -91,7 +86,7 @@ poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi
 
 ## 4. Autonomous Operation
 
-To launch the system in its 20/7 autonomous mode, use the `autonomous` command. The system will run continuously, respecting market hours, until manually stopped.
+To launch the system in its 24/7 autonomous mode, use the `autonomous` command. The system will run continuously, respecting market hours, until manually stopped.
 ```bash
 poetry run python scripts/run_crew.py autonomous
 ```

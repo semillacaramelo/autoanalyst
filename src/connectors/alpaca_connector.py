@@ -143,8 +143,12 @@ class AlpacaConnectionManager:
                 end_dt = pd.to_datetime(end).tz_localize('America/New_York')
             else:
                 end_dt = datetime.now()
-                # Rough estimate: for 1Min bars, go back limit minutes
-                start_dt = end_dt - timedelta(minutes=limit * amount)
+                if tf_unit == TimeFrameUnit.Day:
+                    start_dt = end_dt - timedelta(days=limit * amount)
+                elif tf_unit == TimeFrameUnit.Hour:
+                    start_dt = end_dt - timedelta(hours=limit * amount)
+                else: # Minute
+                    start_dt = end_dt - timedelta(minutes=limit * amount)
 
             
             request_params = StockBarsRequest(

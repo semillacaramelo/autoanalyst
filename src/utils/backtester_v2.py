@@ -33,7 +33,7 @@ class BacktesterV2:
             return 252
         return 252
 
-    def run(self, symbol: str, strategy_name: str, timeframe: str = '1Day', slippage_percent: float = 0.001, commission_per_trade: float = 1.0) -> Dict:
+    def run(self, symbol: str, strategy_name: str, timeframe: str = '1Day', slippage_percent: float = 0.001, commission_per_trade: float = 1.0, data_feed: str = 'iex') -> Dict:
         """Run a backtest for a single strategy."""
         strategy = get_strategy(strategy_name)
 
@@ -56,7 +56,7 @@ class BacktesterV2:
                 continue
 
             signal = strategy.generate_signal(df_slice)
-            validated_signal = strategy.validate_signal(df_slice, signal)
+            validated_signal = strategy.validate_signal(df_slice, signal, data_feed)
 
             if validated_signal['signal'] == 'BUY' and position == 0:
                 price = data['close'].iloc[i] * (1 + slippage_percent)
