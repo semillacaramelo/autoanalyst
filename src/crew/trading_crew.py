@@ -1,6 +1,39 @@
 """
 Trading Crew Orchestration
-Main crew that executes the complete trading workflow.
+
+This module implements the main trading crew that executes the complete 4-agent
+trading workflow. The crew uses CrewAI framework for multi-agent coordination
+and follows a sequential process:
+
+Agent Workflow:
+    1. DataCollectorAgent: Fetches and validates OHLCV market data from Alpaca
+    2. SignalGeneratorAgent: Applies trading strategy to generate BUY/SELL/HOLD signals
+    3. RiskManagerAgent: Enforces position sizing and portfolio-level risk constraints
+    4. ExecutionAgent: Places approved trades via Alpaca API (or logs in DRY_RUN mode)
+
+Key Features:
+    - Lazy initialization to avoid API calls during module import
+    - Support for multiple trading strategies (3MA, RSI, MACD, Bollinger Bands)
+    - Configurable timeframes and historical data limits
+    - Built-in error handling and logging
+    - DRY_RUN mode for safe testing
+
+Usage:
+    from src.crew.trading_crew import trading_crew
+    
+    # Execute crew for SPY with 3MA strategy
+    result = trading_crew.run(
+        symbol="SPY",
+        strategy="3ma",
+        timeframe="1Min",
+        limit=100
+    )
+    
+    # Check result
+    if result['success']:
+        print(f"Trade executed: {result['result']}")
+    else:
+        print(f"Error: {result['error']}")
 """
 from crewai import Crew, Process
 from crewai.llm import LLM

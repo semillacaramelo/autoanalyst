@@ -1,7 +1,35 @@
 #!/usr/bin/env python3
 """
-Trading Crew CLI
-Command-line interface for running the trading crew and market scanner.
+Trading Crew CLI - Command-line interface for the AI-Driven Trading System
+
+This module provides a comprehensive CLI for interacting with the trading system.
+It supports multiple execution modes including single crew runs, market scanning,
+backtesting, strategy comparison, and autonomous 24/7 trading.
+
+Available Commands:
+    run         - Execute trading crew for specific symbol/strategy
+    scan        - Run market scanner to find trading opportunities
+    status      - Check system status and API connectivity
+    backtest    - Run historical backtests on strategies
+    compare     - Compare multiple strategies side-by-side
+    autonomous  - Launch 24/7 autonomous trading mode
+    interactive - Display real-time monitoring dashboard
+    validate    - Validate configuration and API connectivity
+
+Usage:
+    python scripts/run_crew.py [COMMAND] [OPTIONS]
+    python scripts/run_crew.py --help
+    python scripts/run_crew.py [COMMAND] --help
+
+Examples:
+    # Check system status
+    python scripts/run_crew.py status
+    
+    # Run trading crew for SPY with 3MA strategy
+    python scripts/run_crew.py run --symbol SPY --strategy 3ma
+    
+    # Backtest a strategy
+    python scripts/run_crew.py backtest --symbol AAPL --strategy rsi_breakout
 """
 import click
 import json
@@ -47,7 +75,33 @@ def cli():
 @click.option('--timeframe', default='1Min', help='Bar timeframe (1Min, 5Min, etc.)')
 @click.option('--limit', default=100, help='Number of historical bars to fetch')
 def run(symbols, strategies, parallel, scan, top, timeframe, limit):
-    """Run the trading crew with various execution modes."""
+    """
+    Run the trading crew with various execution modes.
+    
+    This command supports multiple execution modes:
+    1. Single symbol/strategy execution (default)
+    2. Multiple symbols/strategies sequentially or in parallel
+    3. Market scanner mode to automatically select top opportunities
+    
+    The crew follows a 4-agent workflow:
+    - Data Collection: Fetch and validate market data
+    - Signal Generation: Apply trading strategy to generate signals
+    - Risk Management: Enforce position sizing and portfolio constraints
+    - Execution: Place approved trades via Alpaca API
+    
+    Examples:
+        # Run for single symbol with default strategy (3ma)
+        python scripts/run_crew.py run --symbol AAPL
+        
+        # Run multiple strategies on one symbol
+        python scripts/run_crew.py run --symbol SPY --strategies 3ma,rsi_breakout
+        
+        # Run with market scanner
+        python scripts/run_crew.py run --scan --top 5
+        
+        # Parallel execution
+        python scripts/run_crew.py run --symbols SPY,QQQ --strategies 3ma,macd --parallel
+    """
     console.print(Panel.fit(
         "[bold cyan]AI-Driven Trading Crew[/bold cyan]\n"
         "[dim]Backend-First Development Version[/dim]",
@@ -92,35 +146,88 @@ def run(symbols, strategies, parallel, scan, top, timeframe, limit):
 
 
 def run_single_crew(symbol, strategy, timeframe, limit):
-    """Helper function to run a single trading crew and print results."""
+    """
+    Helper function to run a single trading crew and print results.
+    
+    Args:
+        symbol: Stock symbol to trade
+        strategy: Trading strategy name
+        timeframe: Bar timeframe (e.g., '1Min', '5Min', '1Day')
+        limit: Number of historical bars to fetch
+        
+    Displays:
+        - Configuration summary
+        - Live trading warning (if applicable)
+        - Execution results or error messages
+    """
+    # Display configuration
     config_table = Table(show_header=False, box=None)
     config_table.add_column("Parameter", style="cyan")
     config_table.add_column("Value", style="green")
     config_table.add_row("Symbol", symbol)
     config_table.add_row("Strategy", strategy)
+    config_table.add_row("Timeframe", timeframe)
+    config_table.add_row("Bars", str(limit))
     config_table.add_row("Mode", "DRY RUN" if settings.dry_run else "LIVE TRADING")
     console.print(config_table)
 
+    # Safety check for live trading
     if not settings.dry_run:
         console.print("\n[bold red]⚠️  WARNING: LIVE TRADING MODE[/bold red]")
+        console.print("[yellow]Real trades will be placed with real money![/yellow]")
         if not click.confirm("Are you sure you want to execute live trades?"):
             console.print("[yellow]Cancelled by user[/yellow]")
             return
 
     try:
+        # Execute the trading crew
         result = trading_crew.run(symbol=symbol, strategy=strategy, timeframe=timeframe, limit=limit)
+        
         if result['success']:
             console.print(Panel.fit("[bold green]✓ Crew execution completed successfully![/bold green]", border_style="green"))
             console.print(f"\n[dim]Result: {result['result']}[/dim]")
         else:
             console.print(Panel.fit(f"[bold red]✗ Crew execution failed[/bold red]\n[dim]{result.get('error', 'Unknown error')}[/dim]", border_style="red"))
+            
+            # Provide helpful suggestions based on error type
+            error_msg = str(result.get('error', '')).lower()
+            if 'connection' in error_msg or 'network' in error_msg:
+                console.print("\n[yellow]Suggestion:[/yellow] Check your internet connection and API credentials")
+            elif 'rate limit' in error_msg:
+                console.print("\n[yellow]Suggestion:[/yellow] You've hit API rate limits. Wait a few minutes and try again")
+            elif 'invalid' in error_msg and 'symbol' in error_msg:
+                console.print("\n[yellow]Suggestion:[/yellow] Verify the stock symbol is valid and traded on US exchanges")
+                
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Execution interrupted by user[/yellow]")
     except Exception as e:
         console.print(Panel.fit(f"[bold red]✗ Unexpected error[/bold red]\n[dim]{str(e)}[/dim]", border_style="red"))
+        console.print("\n[yellow]Suggestion:[/yellow] Check logs/trading_crew_*.log for detailed error information")
 
 
 @cli.command()
 def scan():
-    """Run the market scanner crew to find opportunities."""
+    """
+    Run the market scanner crew to find trading opportunities.
+    
+    The market scanner analyzes the S&P 100 constituents across multiple dimensions:
+    - Volatility analysis: Identifies stocks with optimal volatility
+    - Technical setup: Analyzes technical indicators and patterns
+    - Liquidity filter: Ensures adequate daily trading volume (>1M shares)
+    - Chief analyst: Synthesizes results and recommends top opportunities
+    
+    Output: JSON with top 5 assets ranked by priority, including:
+    - Symbol and priority score
+    - Individual scores (volatility, technical, liquidity)
+    - Recommended trading strategies
+    - Reasoning for the recommendation
+    
+    Note: This command can take several minutes to complete as it analyzes
+    100+ stocks with multiple AI agents.
+    
+    Example:
+        python scripts/run_crew.py scan
+    """
     console.print(Panel.fit(
         "[bold cyan]Market Scanner Crew[/bold cyan]",
         border_style="cyan"
@@ -148,7 +255,30 @@ def scan():
 @click.option('--detailed', is_flag=True, help='Show detailed status including API key health.')
 @click.option('--recommendations', is_flag=True, help='Generate AI-powered recommendations.')
 def status(detailed, recommendations):
-    """Check system status and connectivity."""
+    """
+    Check system status and connectivity.
+    
+    Displays current status of all system components:
+    - Alpaca API: Account status, equity, trading mode, data feed
+    - Gemini API: Number of API keys configured
+    - Rate Limiter: Current API usage vs budgets (with --detailed)
+    - API Key Health: Success/failure tracking for each key (with --detailed)
+    
+    Options:
+        --detailed: Show comprehensive status including API key health tracking
+                   and rate limiter utilization
+        --recommendations: Generate AI-powered recommendations based on system status
+    
+    Examples:
+        # Basic status check
+        python scripts/run_crew.py status
+        
+        # Detailed status with key health
+        python scripts/run_crew.py status --detailed
+        
+        # Get AI recommendations
+        python scripts/run_crew.py status --recommendations
+    """
     console.print(Panel.fit("[bold cyan]System Status Check[/bold cyan]", border_style="cyan"))
 
     # Alpaca Status
@@ -216,7 +346,35 @@ def status(detailed, recommendations):
 @click.option('--start', default='2024-01-01', help='Start date (YYYY-MM-DD).')
 @click.option('--end', default='2024-06-30', help='End date (YYYY-MM-DD).')
 def backtest(strategy, symbol, start, end):
-    """Run a historical backtest for a single strategy."""
+    """
+    Run a historical backtest for a single strategy.
+    
+    Simulates the strategy's performance over a historical period using
+    actual market data. The backtest engine replays historical bars and
+    executes trades according to the strategy's rules.
+    
+    Metrics calculated:
+    - Total trades executed
+    - Total P&L (profit/loss)
+    - Win rate (percentage of profitable trades)
+    - Sharpe ratio (risk-adjusted returns)
+    - Sortino ratio (downside risk-adjusted returns)
+    - Calmar ratio (return vs max drawdown)
+    - Maximum drawdown
+    
+    Available strategies:
+    - 3ma: Triple moving average crossover
+    - rsi_breakout: RSI-based breakout strategy
+    - macd: MACD crossover strategy
+    - bollinger_bands_reversal: Bollinger Bands mean reversion
+    
+    Examples:
+        # Backtest 3MA on SPY for 6 months
+        python scripts/run_crew.py backtest --symbol SPY --strategy 3ma
+        
+        # Backtest RSI breakout on AAPL for full year
+        python scripts/run_crew.py backtest --symbol AAPL --strategy rsi_breakout --start 2024-01-01 --end 2024-12-31
+    """
     console.print(Panel.fit(f"[bold cyan]Backtesting {strategy} on {symbol}[/bold cyan]", border_style="cyan"))
     backtester = BacktesterV2(start_date=start, end_date=end)
     results = backtester.run(symbol, strategy)
@@ -228,7 +386,28 @@ def backtest(strategy, symbol, start, end):
 @click.option('--start', default='2024-01-01', help='Start date (YYYY-MM-DD).')
 @click.option('--end', default='2024-06-30', help='End date (YYYY-MM-DD).')
 def compare(strategies, symbol, start, end):
-    """Compare the performance of multiple strategies."""
+    """
+    Compare the performance of multiple strategies.
+    
+    Runs backtests for multiple strategies on the same asset and time period,
+    then presents a side-by-side comparison of their performance metrics.
+    This helps identify which strategy performs best for a given asset.
+    
+    Output includes for each strategy:
+    - All standard backtest metrics (trades, P&L, win rate, ratios, drawdown)
+    - Relative performance comparison
+    - Best strategy recommendation
+    
+    Examples:
+        # Compare 3MA and RSI strategies on SPY
+        python scripts/run_crew.py compare --symbol SPY --strategies 3ma,rsi_breakout
+        
+        # Compare all strategies on NVDA
+        python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi_breakout,macd,bollinger_bands_reversal
+        
+        # Full year comparison
+        python scripts/run_crew.py compare --symbol QQQ --strategies 3ma,macd --start 2024-01-01 --end 2024-12-31
+    """
     console.print(Panel.fit(f"[bold cyan]Comparing Strategies on {symbol}[/bold cyan]", border_style="cyan"))
     backtester = BacktesterV2(start_date=start, end_date=end)
     strategy_list = strategies.split(',')
@@ -237,7 +416,38 @@ def compare(strategies, symbol, start, end):
 
 @cli.command()
 def autonomous():
-    """Launch the system in 24/7 autonomous trading mode."""
+    """
+    Launch the system in 24/7 autonomous trading mode.
+    
+    In autonomous mode, the system:
+    - Continuously monitors the market according to market calendar
+    - Automatically runs market scans during trading hours
+    - Executes trades based on crew recommendations
+    - Manages open positions and risk limits
+    - Automatically pauses during market closures
+    - Respects daily trade limits and loss limits
+    
+    The scheduler follows the US market calendar:
+    - Active: Monday-Friday, 9:30 AM - 4:00 PM ET
+    - Closed: Weekends and US market holidays
+    
+    Safety features:
+    - DRY_RUN mode by default (set in .env)
+    - Daily loss limits enforced
+    - Maximum position limits enforced
+    - Automatic error recovery with circuit breakers
+    
+    To enable:
+        1. Set AUTONOMOUS_MODE_ENABLED=true in .env
+        2. Configure MAX_DAILY_TRADES and other limits
+        3. Test thoroughly in DRY_RUN mode first
+        4. Set DRY_RUN=false only when ready for live trading
+    
+    Example:
+        python scripts/run_crew.py autonomous
+        
+    Press Ctrl+C to stop autonomous mode.
+    """
     console.print(Panel.fit("[bold cyan]Entering 24/7 Autonomous Trading Mode[/bold cyan]", border_style="cyan"))
     if not settings.autonomous_mode_enabled:
         console.print("[yellow]Warning: Autonomous mode is not enabled in settings. Running for one cycle.[/yellow]")
@@ -318,7 +528,30 @@ def generate_dashboard() -> Layout:
 
 @cli.command()
 def interactive():
-    """Launch the interactive dashboard for real-time monitoring."""
+    """
+    Launch the interactive dashboard for real-time monitoring.
+    
+    Provides a live, terminal-based dashboard with:
+    - System status (Alpaca and Gemini API connectivity)
+    - Current account equity and trading mode
+    - Open positions with real-time P&L
+    - Recent log messages
+    - Auto-refresh every 5 seconds
+    
+    The dashboard uses Rich library for terminal graphics and updates
+    automatically without requiring user input.
+    
+    Navigation:
+    - Dashboard auto-refreshes every 5 seconds
+    - Press Ctrl+C to exit
+    
+    Requirements:
+    - Terminal with ANSI color support
+    - Minimum terminal size: 80x24 characters
+    
+    Example:
+        python scripts/run_crew.py interactive
+    """
     layout = generate_dashboard()
 
     layout["header"].update(
@@ -341,7 +574,40 @@ def interactive():
 
 @cli.command()
 def validate():
-    """Run configuration validation checks."""
+    """
+    Run configuration validation checks.
+    
+    Validates all system configuration before running trading operations:
+    
+    1. Gemini API Keys:
+       - Checks that keys are properly formatted
+       - Verifies keys are loaded from environment
+       - Shows masked key values for security
+    
+    2. Alpaca Connection:
+       - Validates API credentials format
+       - Confirms base URL configuration
+       - Verifies data feed setting (IEX vs SIP)
+    
+    3. Strategy Parameters:
+       - Validates trading symbol
+       - Checks moving average periods (fast < medium < slow)
+       - Verifies volume and ADX thresholds
+    
+    4. Risk Management:
+       - Validates max risk per trade (0-100%)
+       - Checks max open positions limit
+       - Verifies daily loss limit setting
+    
+    Exit codes:
+        0: All checks passed
+        1: One or more checks failed
+    
+    Note: Live API connectivity tests are skipped if network is unavailable.
+    
+    Example:
+        python scripts/run_crew.py validate
+    """
     import subprocess
     script_path = Path(__file__).parent / "validate_config.py"
     subprocess.run(["python", str(script_path)])

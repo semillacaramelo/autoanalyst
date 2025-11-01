@@ -125,11 +125,49 @@ LOG_LEVEL=INFO
 ### CLI Usage
 The primary way to interact with the bot is through the CLI script `scripts/run_crew.py`.
 
-**1. Check System Status**
-Before running any trading operations, check that all API connections are working.
+**Quick Command Reference:**
+
+| Command | Purpose | Time to Execute |
+|---------|---------|-----------------|
+| `validate` | Validate configuration | <5 seconds |
+| `status` | Check system status | <5 seconds |
+| `run` | Execute trading crew | 30-60 seconds |
+| `backtest` | Historical strategy test | 1-5 minutes |
+| `compare` | Compare strategies | 2-10 minutes |
+| `scan` | Market scanner | 5-15 minutes |
+| `autonomous` | 24/7 trading mode | Continuous |
+| `interactive` | Live dashboard | Continuous |
+
+---
+
+**1. Validate Configuration**
+Before first run, validate that all configuration is correct:
 ```bash
-poetry run python scripts/run_crew.py status
+poetry run python scripts/run_crew.py validate
 ```
+
+This checks:
+- ✓ Gemini API keys (format and count)
+- ✓ Alpaca API credentials (format)
+- ✓ Trading strategy parameters
+- ✓ Risk management settings
+
+---
+
+**2. Check System Status**
+View current system status and API connectivity:
+```bash
+# Basic status
+poetry run python scripts/run_crew.py status
+
+# Detailed status with API key health tracking
+poetry run python scripts/run_crew.py status --detailed
+
+# Get AI-powered recommendations
+poetry run python scripts/run_crew.py status --recommendations
+```
+
+Example output:
 ```
 ╭─────────────────────╮
 │ System Status Check │
@@ -137,7 +175,7 @@ poetry run python scripts/run_crew.py status
 
 Alpaca API Status:
   ✓ Account Status: AccountStatus.ACTIVE
-  ✓ Equity: $99_431.01
+  ✓ Equity: $99,431.01
   ✓ Mode: Paper Trading
   ✓ Data Feed: IEX
 
@@ -145,56 +183,161 @@ Gemini API Status:
   ✓ API keys found: 10
 ```
 
-**2. Run a Single Trading Crew**
-To bypass the scanner and run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
+---
+
+**3. Run Trading Crew**
+Execute the 4-agent trading workflow for specific assets and strategies:
+
 ```bash
-poetry run python scripts/run_crew.py run --symbol SPY --strategy 3ma --timeframe 1Day
-```
-```
-╭───────────────────────────────────╮
-│ AI-Driven Trading Crew            │
-│ Backend-First Development Version │
-╰───────────────────────────────────╯
+# Single symbol, default strategy (3ma)
+poetry run python scripts/run_crew.py run --symbol SPY
 
-Running in Single Crew mode...
- Symbol    SPY
- Strategy  3ma
- Mode      DRY RUN
-╭─────────────────────────── Crew Execution Started ───────────────────────────╮
-│                                                                              │
-│  Crew Execution Started                                                      │
-│  Name: crew                                                                  │
-│  ID: e90d92cb-3761-44bd-85d6-e128cde051cc                                    │
-│  Tool Args:                                                                  │
-│                                                                              │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-...
-╭──────────────────────────────────────────╮
-│ ✓ Crew execution completed successfully! │
-╰──────────────────────────────────────────╯
+# Specific strategy
+poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
 
-Result: {"status": "SKIPPED", "reason": "Trade not approved. Signal is HOLD.",
-"order_id": null, "trade_details": {"symbol": null, "qty": 0, "side": null}}
+# Multiple strategies on one symbol (sequential)
+poetry run python scripts/run_crew.py run --symbol SPY --strategies 3ma,rsi_breakout,macd
+
+# Multiple symbols with parallel execution
+poetry run python scripts/run_crew.py run --symbols SPY,QQQ,IWM --strategy 3ma --parallel
+
+# Custom timeframe and data limit
+poetry run python scripts/run_crew.py run --symbol NVDA --strategy 3ma --timeframe 5Min --limit 200
+
+# Use market scanner to find opportunities
+poetry run python scripts/run_crew.py run --scan --top 5
 ```
 
-**3. Run the Market Scanner Only**
-To run the market scanner to see the top recommended assets without executing any trades:
+**Available Strategies:**
+- `3ma` - Triple Moving Average crossover
+- `rsi_breakout` - RSI-based breakout strategy
+- `macd` - MACD crossover strategy
+- `bollinger_bands_reversal` - Bollinger Bands mean reversion
+
+**Available Timeframes:**
+- `1Min`, `5Min`, `15Min`, `30Min`, `1Hour`, `1Day`
+
+---
+
+**4. Backtest a Strategy**
+Test strategy performance on historical data:
+
+```bash
+# Default: 3ma on SPY for Jan-Jun 2024
+poetry run python scripts/run_crew.py backtest
+
+# Custom strategy and symbol
+poetry run python scripts/run_crew.py backtest --symbol AAPL --strategy rsi_breakout
+
+# Custom date range
+poetry run python scripts/run_crew.py backtest \
+    --symbol NVDA \
+    --strategy 3ma \
+    --start 2024-01-01 \
+    --end 2024-12-31
+```
+
+Output includes:
+- Total trades executed
+- Total P&L (profit/loss)
+- Win rate (% of profitable trades)
+- Sharpe ratio (risk-adjusted returns)
+- Sortino ratio (downside risk-adjusted returns)
+- Calmar ratio (return vs max drawdown)
+- Maximum drawdown
+
+---
+
+**5. Compare Strategies**
+Compare multiple strategies side-by-side on the same asset:
+
+```bash
+# Compare 3ma vs rsi_breakout on SPY
+poetry run python scripts/run_crew.py compare --symbol SPY --strategies 3ma,rsi_breakout
+
+# Compare all strategies on NVDA
+poetry run python scripts/run_crew.py compare \
+    --symbol NVDA \
+    --strategies 3ma,rsi_breakout,macd,bollinger_bands_reversal
+
+# Custom date range
+poetry run python scripts/run_crew.py compare \
+    --symbol QQQ \
+    --strategies 3ma,macd \
+    --start 2024-01-01 \
+    --end 2024-12-31
+```
+
+---
+
+**6. Run Market Scanner**
+Scan S&P 100 to find top trading opportunities:
+
 ```bash
 poetry run python scripts/run_crew.py scan
 ```
-**Note:** This command can take a long time to run.
 
-**4. View All Commands**
-To see the full list of available commands and options:
-```bash
-poetry run python scripts/run_crew.py --help
-```
+The scanner:
+- Analyzes volatility patterns
+- Evaluates technical setups
+- Filters by liquidity (>1M daily volume)
+- Recommends top 5 assets with strategies
 
-### Running the Bot in Autonomous Mode
-For 24/7 operation, the bot can be launched in autonomous mode. It will continuously scan the market, execute trades, and manage its state according to the global market calendar.
+**Note:** This command can take 5-15 minutes as it analyzes 100+ stocks.
+
+---
+
+**7. Launch Autonomous Mode**
+Run 24/7 autonomous trading:
+
 ```bash
 poetry run python scripts/run_crew.py autonomous
+```
+
+**Before using autonomous mode:**
+1. Test thoroughly in DRY_RUN mode
+2. Set `AUTONOMOUS_MODE_ENABLED=true` in `.env`
+3. Configure `MAX_DAILY_TRADES` and loss limits
+4. Only set `DRY_RUN=false` when ready for live trading
+
+**Safety features:**
+- Follows market calendar (9:30 AM - 4:00 PM ET)
+- Respects daily trade and loss limits
+- Automatic error recovery
+- Circuit breakers on failures
+
+Press `Ctrl+C` to stop.
+
+---
+
+**8. Interactive Dashboard**
+Launch real-time monitoring dashboard:
+
+```bash
+poetry run python scripts/run_crew.py interactive
+```
+
+Dashboard shows:
+- System status (Alpaca & Gemini APIs)
+- Current account equity
+- Open positions with real-time P&L
+- Recent log messages
+
+Auto-refreshes every 5 seconds. Press `Ctrl+C` to exit.
+
+---
+
+**9. View Command Help**
+Get detailed help for any command:
+
+```bash
+# Main help
+poetry run python scripts/run_crew.py --help
+
+# Command-specific help
+poetry run python scripts/run_crew.py run --help
+poetry run python scripts/run_crew.py backtest --help
+poetry run python scripts/run_crew.py status --help
 ```
 
 ---
