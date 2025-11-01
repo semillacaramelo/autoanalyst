@@ -307,18 +307,18 @@ def status(detailed, recommendations):
             health_table.add_row(f"...{key[-4:]}", str(stats['success']), str(stats['failure']), f"{score:.0%}")
         console.print(health_table)
 
-    # Rate Limiter Status
-    if detailed:
-        console.print("\n[cyan]Rate Limiter Status (Last Minute):[/cyan]")
-        rate_table = Table(title="API Rate Limit Utilization")
-        rate_table.add_column("Service", style="cyan")
-        rate_table.add_column("Usage", style="magenta")
-        rate_table.add_column("Budget", style="green")
-        limiter = trading_orchestrator.global_rate_limiter
-        limiter._cleanup() # Ensure deque is up-to-date
-        rate_table.add_row("Gemini", f"{len(limiter.gemini_rpm_used)} RPM", f"{limiter.gemini_rpm_budget:.0f} RPM")
-        rate_table.add_row("Alpaca", f"{len(limiter.alpaca_rpm_used)} RPM", f"{limiter.alpaca_rpm_budget:.0f} RPM")
-        console.print(rate_table)
+    # Rate Limiter Status - TODO: Implement global_rate_limiter in TradingOrchestrator
+    # if detailed:
+    #     console.print("\n[cyan]Rate Limiter Status (Last Minute):[/cyan]")
+    #     rate_table = Table(title="API Rate Limit Utilization")
+    #     rate_table.add_column("Service", style="cyan")
+    #     rate_table.add_column("Usage", style="magenta")
+    #     rate_table.add_column("Budget", style="green")
+    #     limiter = trading_orchestrator.global_rate_limiter
+    #     limiter._cleanup() # Ensure deque is up-to-date
+    #     rate_table.add_row("Gemini", f"{len(limiter.gemini_rpm_used)} RPM", f"{limiter.gemini_rpm_budget:.0f} RPM")
+    #     rate_table.add_row("Alpaca", f"{len(limiter.alpaca_rpm_used)} RPM", f"{limiter.alpaca_rpm_budget:.0f} RPM")
+    #     console.print(rate_table)
 
     # Recommendations
     if recommendations:

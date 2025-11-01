@@ -1,6 +1,6 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, validator
+from pydantic import Field, field_validator, SkipValidation
 from typing import List, Literal
 import os
 import threading
@@ -74,7 +74,8 @@ class Settings(BaseSettings):
         super().__init__(**data)
         self._keys_lock = threading.Lock()
     
-    @validator("gemini_api_keys")
+    @field_validator("gemini_api_keys")
+    @classmethod
     def validate_api_keys(cls, v):
         """Ensure at least one API key is provided."""
         keys = [k.strip() for k in v.split(',') if k.strip()]
@@ -82,9 +83,11 @@ class Settings(BaseSettings):
             raise ValueError("At least one Gemini API key required")
         return v
     
-    @validator("ma_slow_period")
-    def validate_ma_periods(cls, v, values):
+    @field_validator("ma_slow_period")
+    @classmethod
+    def validate_ma_periods(cls, v, info):
         """Ensure MA periods are in correct order."""
+        values = info.data
         if "ma_fast_period" in values and "ma_medium_period" in values:
             if not (values["ma_fast_period"] < values["ma_medium_period"] < v):
                 raise ValueError(
@@ -112,9 +115,10 @@ class Settings(BaseSettings):
         
         return self._cached_keys
 
-    @validator("default_llm_model")
+    @field_validator("default_llm_model")
+    @classmethod
     def validate_default_model_format(cls, v):
-        """Ensure default LL M model uses provider-prefixed format to help LiteLLM routing."""
+        """Ensure default LLM model uses provider-prefixed format to help LiteLLM routing."""
         if not v:
             raise ValueError("default_llm_model cannot be empty")
         if not v.startswith("google/"):
