@@ -113,6 +113,13 @@ class TradingOrchestrator:
         # Step 2: Submit trading crews for top assets (up to 3)
         # Add staggered submission to prevent API rate limit spikes
         futures = []
+        
+        # Calculate total expected crews to determine when to delay
+        total_expected_crews = sum(
+            len(asset.get("recommended_strategies", ["3ma"])) 
+            for asset in top_assets[:3]
+        )
+        
         for asset_config in top_assets[:3]:  # Process top 3 assets
             for strategy in asset_config.get("recommended_strategies", ["3ma"]):
                 logger.info(
@@ -126,7 +133,8 @@ class TradingOrchestrator:
                 futures.append(future)
                 # Add a 2-second delay between crew submissions to stagger API usage
                 # This helps prevent all crews from hitting the API simultaneously
-                if len(futures) < len(top_assets[:3]) * len(asset_config.get("recommended_strategies", ["3ma"])):
+                # Skip delay after the last submission
+                if len(futures) < total_expected_crews:
                     time.sleep(2)
 
         # Step 3: Wait for all submitted crews to complete
