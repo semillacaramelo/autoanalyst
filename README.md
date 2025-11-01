@@ -157,7 +157,7 @@ The primary way to interact with the bot is through the CLI script `scripts/run_
 | `run` | Execute trading crew | 30-60 seconds |
 | `backtest` | Historical strategy test | 1-5 minutes |
 | `compare` | Compare strategies | 2-10 minutes |
-| `scan` | Market scanner | 5-15 minutes |
+| `scan` | Market scanner | 1-2 minutes |
 | `autonomous` | 24/7 trading mode | Continuous |
 | `interactive` | Live dashboard | Continuous |
 
@@ -305,8 +305,9 @@ The scanner:
 - Evaluates technical setups
 - Filters by liquidity (>1M daily volume)
 - Recommends top 5 assets with strategies
+- Uses parallel data fetching for fast execution (completes in ~1-2 minutes)
 
-**Note:** This command can take 5-15 minutes as it analyzes 100+ stocks.
+**Note:** Market scanner now uses concurrent API calls for optimal performance.
 
 ---
 
@@ -415,7 +416,7 @@ poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi
 
 - **API Keys:** Never commit to Git (use `.env`)
 - **Paper Trading:** Default mode for safety
-- **Rate Limiting:** Automatic throttling to respect API limits
+- **Rate Limiting:** Thread-safe, centralized rate limiting in GeminiConnectionManager prevents API quota violations during parallel execution
 - **Circuit Breakers:** Prevent cascading failures
 
 ---

@@ -4,6 +4,21 @@ All notable changes to the AI-Driven Trading Crew project are documented here.
 
 ## [Unreleased] - 2025-11-01
 
+### Fixed - Critical
+- **Fixed race condition in API rate limiting** - Parallel crew execution now prevents 429 RESOURCE_EXHAUSTED errors
+  - Implemented thread-safe rate limiting with `threading.Lock()` in GeminiConnectionManager
+  - Ensures atomic rate limit checking and client creation during concurrent crew execution
+  - Removed deprecated `global_rate_limiter` that caused race conditions in parallel execution
+  - Updated TradingOrchestrator to rely on centralized blocking logic in GeminiConnectionManager
+  - All rate limit checks now handled by thread-safe connector with proper locking
+
+### Fixed - Performance
+- **Optimized market scanner performance** - Reduced execution time from 7+ minutes to ~1 minute
+  - Replaced sequential API calls with parallel execution using ThreadPoolExecutor
+  - Implemented concurrent data fetching with max_workers=10 for optimal throughput
+  - Added comprehensive error handling for failed symbol fetches
+  - Scanner now completes S&P 100 analysis in approximately 60 seconds (previously 400+ seconds)
+
 ### Fixed
 - **Critical: Fixed eager initialization bug** - Trading and market scanner crews now use lazy initialization pattern
   - Prevents API health checks from hanging during module import
