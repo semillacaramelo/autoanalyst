@@ -36,7 +36,6 @@ Usage:
         print(f"Error: {result['error']}")
 """
 from crewai import Crew, Process
-from crewai.llm import LLM
 import threading
 import logging
 
@@ -65,8 +64,8 @@ class TradingCrew:
             self.crew = None
             return
             
-        llm_client = gemini_manager.get_client()
-        llm = LLM(llm=llm_client, model=f"gemini/{settings.primary_llm_models[0]}")
+        # Get LangChain LLM directly - CrewAI 1.3+ uses LangChain models directly
+        llm = gemini_manager.get_client(skip_health_check=False)
 
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
@@ -98,7 +97,7 @@ class TradingCrew:
             verbose=True
         )
 
-        logger.info("TradingCrew initialized with dependency injection.")
+        logger.info("TradingCrew initialized with LangChain LLM.")
     
     def run(
         self,

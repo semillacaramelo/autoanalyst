@@ -126,19 +126,21 @@ class GeminiConnectionManager:
         self.rate_limiter = RateLimiter(rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd)
         self.request_count = 0
 
-    def get_client(self, skip_health_check: bool = False):
+    def get_client(self, skip_health_check: bool = False, model: str = None):
         """
         Return a LangChain ChatGoogleGenerativeAI instance with failover and key rotation.
         
         Args:
             skip_health_check: If True, skip the API health check (useful for testing/help commands)
+            model: Specific model to use (e.g., "gemini-2.0-flash-exp", "gemini-1.5-pro"). 
+                   If None, tries primary models first, then fallback models.
         
         This method includes a health check by making a real API call unless skip_health_check is True.
         """
         if ChatGoogleGenerativeAI is None:
             raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
 
-        models_to_try = self.primary_models + self.fallback_models
+        models_to_try = [model] if model else (self.primary_models + self.fallback_models)
         last_exception = None
         MAX_CYCLES = 3
 
@@ -156,8 +158,12 @@ class GeminiConnectionManager:
                     self.rate_limiter.wait_if_needed()
                     try:
                         global_rate_limiter.register_api_call('gemini')
+                        # Use the model name directly without "gemini/" prefix
+                        # LangChain expects just the model name like "gemini-2.0-flash-exp"
+                        clean_model_name = model_name.replace("gemini/", "")
+                        
                         client = ChatGoogleGenerativeAI(
-                            model=model_name,
+                            model=clean_model_name,
                             google_api_key=api_key,
                             temperature=self.temperature,
                             verbose=(settings.log_level == "DEBUG")
@@ -169,7 +175,7 @@ class GeminiConnectionManager:
 
                         self.key_health_tracker.record_success(api_key)
                         self.request_count += 1
-                        logger.info(f"Successfully created and verified Gemini client with model {model_name} and key ...{api_key[-4:]}")
+                        logger.info(f"Successfully created and verified Gemini client with model {clean_model_name} and key ...{api_key[-4:]}")
                         return client
 
                     except GoogleAPICallError as e:

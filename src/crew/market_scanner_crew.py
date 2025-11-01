@@ -3,7 +3,6 @@ Market Scanner Crew
 This crew is responsible for scanning the market and identifying trading opportunities.
 """
 from crewai import Crew, Process, Task
-from crewai.llm import LLM
 from pydantic import BaseModel, Field
 from typing import List
 import threading
@@ -42,8 +41,8 @@ class MarketScannerCrew:
             self.chief_analyst = None
             return
             
-        llm_client = gemini_manager.get_client()
-        llm = LLM(llm=llm_client, model="gemini/gemini-2.5-flash")
+        # Get LangChain LLM directly - CrewAI 1.3+ uses LangChain models directly
+        llm = gemini_manager.get_client(skip_health_check=False, model="gemini-2.0-flash-exp")
         agents_factory = ScannerAgents()
 
         # Define Agents
