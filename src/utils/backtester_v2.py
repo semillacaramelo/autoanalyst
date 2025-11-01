@@ -41,7 +41,7 @@ class BacktesterV2:
         
         strategy = get_strategy(strategy_name)
 
-        data = alpaca_manager.fetch_historical_bars(symbol, timeframe, start=self.start_date, end=self.end_date)
+        data = alpaca_manager.fetch_historical_bars(symbol, timeframe, start=self.start_date, end=self.end_date, data_feed=data_feed)
 
         if data.empty:
             logger.warning(f"No data found for {symbol} in the given date range.")
