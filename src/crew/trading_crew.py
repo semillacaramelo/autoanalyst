@@ -37,13 +37,14 @@ Usage:
 """
 from crewai import Crew, Process
 from crewai.llm import LLM
+import threading
+import logging
 
 from src.agents.base_agents import TradingAgents
 from src.config.settings import settings
 from src.connectors.gemini_connector import gemini_manager
 from src.crew.crew_context import crew_context
 from src.crew.tasks import TradingTasks
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ class TradingCrew:
 
 # Global instance factory function for lazy initialization
 _trading_crew_instance = None
-_trading_crew_lock = None
+_trading_crew_lock = threading.Lock()
 
 def get_trading_crew() -> TradingCrew:
     """
@@ -164,14 +165,9 @@ def get_trading_crew() -> TradingCrew:
     Lazy initialization to avoid API calls during module import.
     Thread-safe using double-checked locking pattern.
     """
-    global _trading_crew_instance, _trading_crew_lock
+    global _trading_crew_instance
     
     if _trading_crew_instance is None:
-        # Import threading only when needed to avoid overhead
-        if _trading_crew_lock is None:
-            import threading
-            _trading_crew_lock = threading.Lock()
-        
         with _trading_crew_lock:
             # Double-check: another thread might have created instance while we waited
             if _trading_crew_instance is None:
@@ -179,13 +175,16 @@ def get_trading_crew() -> TradingCrew:
     
     return _trading_crew_instance
 
-# For backwards compatibility, provide a property-like accessor
+# For backwards compatibility, provide a proxy that lazily initializes
 class _TradingCrewProxy:
-    """Proxy that lazily initializes the trading crew on first access."""
-    def __getattr__(self, name):
-        return getattr(get_trading_crew(), name)
+    """
+    Proxy that lazily initializes the trading crew on first access.
     
+    Only the 'run' method is explicitly supported to maintain clear interface.
+    Other attributes will be proxied but may not work as expected.
+    """
     def run(self, *args, **kwargs):
+        """Execute the trading crew workflow."""
         return get_trading_crew().run(*args, **kwargs)
 
 trading_crew = _TradingCrewProxy()

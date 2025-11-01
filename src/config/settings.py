@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, validator
 from typing import List, Literal
 import os
+import threading
 
 
 class Settings(BaseSettings):
@@ -97,9 +98,8 @@ class Settings(BaseSettings):
         Returns:
             List of API key strings, with whitespace stripped
         """
-        # Use a lock for thread-safe caching
+        # Initialize lock once at first access
         if not hasattr(self, '_keys_lock'):
-            import threading
             self._keys_lock = threading.Lock()
         
         # Cache the parsed keys to avoid repeated string processing

@@ -6,6 +6,8 @@ from crewai import Crew, Process, Task
 from crewai.llm import LLM
 from pydantic import BaseModel, Field
 from typing import List
+import threading
+
 from src.agents.scanner_agents import ScannerAgents
 from src.connectors.gemini_connector import gemini_manager
 import json
@@ -97,7 +99,7 @@ class MarketScannerCrew:
 
 # Global instance factory function for lazy initialization
 _market_scanner_crew_instance = None
-_market_scanner_crew_lock = None
+_market_scanner_crew_lock = threading.Lock()
 
 def get_market_scanner_crew() -> MarketScannerCrew:
     """
@@ -105,14 +107,9 @@ def get_market_scanner_crew() -> MarketScannerCrew:
     Lazy initialization to avoid API calls during module import.
     Thread-safe using double-checked locking pattern.
     """
-    global _market_scanner_crew_instance, _market_scanner_crew_lock
+    global _market_scanner_crew_instance
     
     if _market_scanner_crew_instance is None:
-        # Import threading only when needed to avoid overhead
-        if _market_scanner_crew_lock is None:
-            import threading
-            _market_scanner_crew_lock = threading.Lock()
-        
         with _market_scanner_crew_lock:
             # Double-check: another thread might have created instance while we waited
             if _market_scanner_crew_instance is None:
@@ -120,13 +117,15 @@ def get_market_scanner_crew() -> MarketScannerCrew:
     
     return _market_scanner_crew_instance
 
-# For backwards compatibility, provide a property-like accessor
+# For backwards compatibility, provide a proxy that lazily initializes
 class _MarketScannerCrewProxy:
-    """Proxy that lazily initializes the market scanner crew on first access."""
-    def __getattr__(self, name):
-        return getattr(get_market_scanner_crew(), name)
+    """
+    Proxy that lazily initializes the market scanner crew on first access.
     
+    Only the 'run' method is explicitly supported to maintain clear interface.
+    """
     def run(self, *args, **kwargs):
+        """Run the market scanner crew to identify opportunities."""
         return get_market_scanner_crew().run(*args, **kwargs)
 
 market_scanner_crew = _MarketScannerCrewProxy()

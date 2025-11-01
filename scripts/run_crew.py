@@ -91,10 +91,10 @@ def run(symbols, strategies, parallel, scan, top, timeframe, limit):
     
     Examples:
         # Run for single symbol with default strategy (3ma)
-        python scripts/run_crew.py run --symbol AAPL
+        python scripts/run_crew.py run --symbols AAPL
         
         # Run multiple strategies on one symbol
-        python scripts/run_crew.py run --symbol SPY --strategies 3ma,rsi_breakout
+        python scripts/run_crew.py run --symbols SPY --strategies 3ma,rsi_breakout
         
         # Run with market scanner
         python scripts/run_crew.py run --scan --top 5
