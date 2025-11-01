@@ -2,9 +2,10 @@
 Backtesting Engine V2 - Event-Driven
 """
 import numpy as np
-from typing import List, Dict
+from typing import List, Dict, Optional
 from src.connectors.alpaca_connector import alpaca_manager
 from src.strategies.registry import get_strategy
+from src.config.settings import settings
 import logging
 import re
 
@@ -32,8 +33,12 @@ class BacktesterV2:
             return 252
         return 252
 
-    def run(self, symbol: str, strategy_name: str, timeframe: str = '1Day', slippage_percent: float = 0.001, commission_per_trade: float = 1.0, data_feed: str = 'iex') -> Dict:
+    def run(self, symbol: str, strategy_name: str, timeframe: str = '1Day', slippage_percent: float = 0.001, commission_per_trade: float = 1.0, data_feed: Optional[str] = None) -> Dict:
         """Run a backtest for a single strategy."""
+        # Use configured data feed if not explicitly provided
+        if data_feed is None:
+            data_feed = settings.alpaca_data_feed
+        
         strategy = get_strategy(strategy_name)
 
         data = alpaca_manager.fetch_historical_bars(symbol, timeframe, start=self.start_date, end=self.end_date)
@@ -79,8 +84,14 @@ class BacktesterV2:
         """Calculate performance metrics from a list of trades."""
         annualization_factor = self._get_annualization_factor(timeframe)
 
-        if not trades or len(trades) % 2 != 0:
+        if not trades:
             return {"trades": 0, "pnl": 0, "win_rate": 0, "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0, "max_drawdown": 0}
+
+        if len(trades) % 2 != 0:
+            logger.warning("Odd number of trades detected (%d). The last trade will be ignored for performance calculation.", len(trades))
+            trades = trades[:-1]
+            if not trades:
+                return {"trades": 0, "pnl": 0, "win_rate": 0, "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0, "max_drawdown": 0}
 
         pnl = 0
         wins = 0
