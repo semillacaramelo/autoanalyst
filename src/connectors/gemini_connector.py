@@ -14,12 +14,12 @@ the provider reliably.
 """
 from __future__ import annotations
 import logging
+import threading
 import time
 from collections import deque
 from typing import List, Optional, Dict
 
 from src.config.settings import settings
-from src.utils.rate_limiter import global_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,11 @@ class GeminiConnectionManager:
         self.temperature = temperature
         self.rate_limiter = RateLimiter(rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd)
         self.request_count = 0
+        # Thread lock for ensuring atomic rate limit checking and client creation during parallel execution.
+        # Prevents race conditions when multiple trading crews run concurrently and attempt to access
+        # the Gemini API simultaneously. This ensures only one thread can check and consume rate limit
+        # quota at a time, preventing 429 RESOURCE_EXHAUSTED errors.
+        self._lock = threading.Lock()
     
     @staticmethod
     def mask_api_key(api_key: str) -> str:
@@ -160,73 +165,74 @@ class GeminiConnectionManager:
                    If None, tries primary models first, then fallback models.
         
         This method includes a health check by making a real API call unless skip_health_check is True.
+        Thread-safe: Uses a lock to ensure atomic rate limit checking during parallel execution.
         """
-        if ChatGoogleGenerativeAI is None:
-            raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
+        with self._lock:
+            if ChatGoogleGenerativeAI is None:
+                raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
 
-        models_to_try = [model] if model else (self.primary_models + self.fallback_models)
-        last_exception = None
-        MAX_CYCLES = 3
+            models_to_try = [model] if model else (self.primary_models + self.fallback_models)
+            last_exception = None
+            MAX_CYCLES = 3
 
-        for cycle_num in range(MAX_CYCLES):
-            logger.info(f"Starting connection attempt cycle {cycle_num + 1}/{MAX_CYCLES}")
-            available_keys = self.key_health_tracker.get_available_keys_sorted()
+            for cycle_num in range(MAX_CYCLES):
+                logger.info(f"Starting connection attempt cycle {cycle_num + 1}/{MAX_CYCLES}")
+                available_keys = self.key_health_tracker.get_available_keys_sorted()
 
-            if not available_keys:
-                logger.warning("All API keys are in backoff or unhealthy. Waiting 10s...")
-                time.sleep(10)
-                continue
+                if not available_keys:
+                    logger.warning("All API keys are in backoff or unhealthy. Waiting 10s...")
+                    time.sleep(10)
+                    continue
 
-            for api_key in available_keys:
-                for model_name in models_to_try:
-                    self.rate_limiter.wait_if_needed()
-                    try:
-                        global_rate_limiter.register_api_call('gemini')
-                        # Use the model name directly without "gemini/" prefix
-                        # LangChain expects just the model name like "gemini-2.0-flash-exp"
-                        clean_model_name = model_name.replace("gemini/", "")
-                        
-                        client = ChatGoogleGenerativeAI(
-                            model=clean_model_name,
-                            google_api_key=api_key,
-                            temperature=self.temperature,
-                            verbose=(settings.log_level == "DEBUG")
-                        )
-                        
-                        # Health check: Make a real, lightweight API call (unless skipped)
-                        if not skip_health_check:
-                            client.invoke("hello")
+                for api_key in available_keys:
+                    for model_name in models_to_try:
+                        self.rate_limiter.wait_if_needed()
+                        try:
+                            # Use the model name directly without "gemini/" prefix
+                            # LangChain expects just the model name like "gemini-2.0-flash-exp"
+                            clean_model_name = model_name.replace("gemini/", "")
+                            
+                            client = ChatGoogleGenerativeAI(
+                                model=clean_model_name,
+                                google_api_key=api_key,
+                                temperature=self.temperature,
+                                verbose=(settings.log_level == "DEBUG")
+                            )
+                            
+                            # Health check: Make a real, lightweight API call (unless skipped)
+                            if not skip_health_check:
+                                client.invoke("hello")
 
-                        self.key_health_tracker.record_success(api_key)
-                        self.request_count += 1
-                        # Only log last 4 chars of API key for security
-                        logger.info(f"Successfully created and verified Gemini client with model {clean_model_name} and key {self.mask_api_key(api_key)}")
-                        return client
+                            self.key_health_tracker.record_success(api_key)
+                            self.request_count += 1
+                            # Only log last 4 chars of API key for security
+                            logger.info(f"Successfully created and verified Gemini client with model {clean_model_name} and key {self.mask_api_key(api_key)}")
+                            return client
 
-                    except GoogleAPICallError as e:
-                        # Mask API key for security
-                        logger.warning(
-                            f"API call failed for model {model_name} with key {self.mask_api_key(api_key)}: {e.message if hasattr(e, 'message') else str(e)}"
-                        )
-                        last_exception = e
-                        # Always record failure for health tracking, regardless of error code
-                        self.key_health_tracker.record_failure(api_key)
-                        if e.code in [401, 403, 429]:
-                            logger.error(f"Key {self.mask_api_key(api_key)} is invalid or rate-limited. Moving to next key.")
-                            break # Breaks from the inner model-loop, proceeds to next key
-                        # Otherwise, model might be unavailable, so try next model with same key.
-                        continue
-                    except Exception as e:
-                        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-                        self.key_health_tracker.record_failure(api_key)
-                        last_exception = e
-                        # Break to try a new key on unexpected errors
-                        break
+                        except GoogleAPICallError as e:
+                            # Mask API key for security
+                            logger.warning(
+                                f"API call failed for model {model_name} with key {self.mask_api_key(api_key)}: {e.message if hasattr(e, 'message') else str(e)}"
+                            )
+                            last_exception = e
+                            # Always record failure for health tracking, regardless of error code
+                            self.key_health_tracker.record_failure(api_key)
+                            if e.code in [401, 403, 429]:
+                                logger.error(f"Key {self.mask_api_key(api_key)} is invalid or rate-limited. Moving to next key.")
+                                break # Breaks from the inner model-loop, proceeds to next key
+                            # Otherwise, model might be unavailable, so try next model with same key.
+                            continue
+                        except Exception as e:
+                            logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+                            self.key_health_tracker.record_failure(api_key)
+                            last_exception = e
+                            # Break to try a new key on unexpected errors
+                            break
 
-            logger.warning(f"Exhausted all available keys in cycle {cycle_num + 1}. Waiting 60s before retrying.")
-            time.sleep(60)
+                logger.warning(f"Exhausted all available keys in cycle {cycle_num + 1}. Waiting 60s before retrying.")
+                time.sleep(60)
 
-        raise RuntimeError(f"Failed to get a working Gemini client after {MAX_CYCLES} cycles. Last error: {last_exception}")
+            raise RuntimeError(f"Failed to get a working Gemini client after {MAX_CYCLES} cycles. Last error: {last_exception}")
 
 # Global singleton
 gemini_manager = GeminiConnectionManager()

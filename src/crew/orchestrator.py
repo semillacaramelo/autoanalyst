@@ -12,7 +12,7 @@ Workflow:
     
 Key Features:
     - Thread pool execution for parallel crew runs
-    - Global rate limiting to stay within API quotas
+    - Thread-safe rate limiting via GeminiConnectionManager
     - Automatic error recovery and logging
     - Configurable parallel execution limits
 
@@ -29,7 +29,6 @@ from typing import Dict, List
 from src.config.settings import settings
 from src.crew.market_scanner_crew import market_scanner_crew
 from src.crew.trading_crew import TradingCrew
-from src.utils.rate_limiter import global_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +42,11 @@ class TradingOrchestrator:
     Attributes:
         market_scanner: Market scanner crew instance
         active_crews: Dictionary tracking active trading crew instances
-        global_rate_limiter: Global rate limiter for API quota management
         executor: Thread pool executor for parallel crew execution (max 3 workers)
     """
     def __init__(self):
         self.market_scanner = market_scanner_crew
         self.active_crews: Dict[str, TradingCrew] = {}
-        self.global_rate_limiter = global_rate_limiter
         self.executor = ThreadPoolExecutor(max_workers=3)  # Limit parallel crews to 3
 
     def _run_trading_crew(self, symbol: str, strategy: str):
@@ -86,8 +83,8 @@ class TradingOrchestrator:
             6. Log aggregated results
             
         Rate limiting:
-            - Checks global rate limiter before starting each crew
-            - Stops submitting new crews if budget is exhausted
+            - Handled automatically by thread-safe GeminiConnectionManager
+            - Rate limits enforced with blocking logic in get_client method
             
         Thread safety:
             - Uses ThreadPoolExecutor for safe parallel execution
@@ -108,21 +105,13 @@ class TradingOrchestrator:
         futures = []
         for asset_config in top_assets[:3]:  # Process top 3 assets
             for strategy in asset_config.get("recommended_strategies", ["3ma"]):
-                # Check if we have budget for another crew
-                if self.global_rate_limiter.can_start_crew():
-                    logger.info(f"Submitting trading crew for {asset_config['symbol']} with strategy {strategy}")
-                    future = self.executor.submit(
-                        self._run_trading_crew,
-                        symbol=asset_config["symbol"],
-                        strategy=strategy
-                    )
-                    futures.append(future)
-                else:
-                    logger.warning("Rate limit budget reached. Cannot start more crews this cycle.")
-                    break
-            # Stop if we've hit rate limit
-            if not self.global_rate_limiter.can_start_crew():
-                break
+                logger.info(f"Submitting trading crew for {asset_config['symbol']} with strategy {strategy}")
+                future = self.executor.submit(
+                    self._run_trading_crew,
+                    symbol=asset_config["symbol"],
+                    strategy=strategy
+                )
+                futures.append(future)
 
         # Step 3: Wait for all submitted crews to complete
         results = [f.result() for f in futures]
