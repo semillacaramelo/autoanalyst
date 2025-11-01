@@ -87,8 +87,19 @@ class Settings(BaseSettings):
         return v
     
     def get_gemini_keys_list(self) -> List[str]:
-        """Return Gemini API keys as a list."""
-        return [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+        """
+        Return Gemini API keys as a list.
+        
+        Parses comma-separated API keys from configuration.
+        Results are cached since keys don't change during runtime.
+        
+        Returns:
+            List of API key strings, with whitespace stripped
+        """
+        # Cache the parsed keys to avoid repeated string processing
+        if not hasattr(self, '_cached_keys'):
+            self._cached_keys = [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+        return self._cached_keys
 
     @validator("default_llm_model")
     def validate_default_model_format(cls, v):
