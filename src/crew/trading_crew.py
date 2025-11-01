@@ -35,13 +35,12 @@ Usage:
     else:
         print(f"Error: {result['error']}")
 """
-from crewai import Crew, Process
+from crewai import Crew, Process, LLM
 import threading
 import logging
 
 from src.agents.base_agents import TradingAgents
 from src.config.settings import settings
-from src.connectors.gemini_connector import gemini_manager
 from src.crew.crew_context import crew_context
 from src.crew.tasks import TradingTasks
 
@@ -64,8 +63,13 @@ class TradingCrew:
             self.crew = None
             return
             
-        # Get LangChain LLM directly - CrewAI 1.3+ uses LangChain models directly
-        llm = gemini_manager.get_client(skip_health_check=False)
+        # Use CrewAI's LLM class with Gemini
+        # Get first available API key
+        api_keys = settings.get_gemini_keys_list()
+        llm = LLM(
+            model=f"gemini/{settings.primary_llm_models[0]}",
+            api_key=api_keys[0]
+        )
 
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
@@ -97,7 +101,7 @@ class TradingCrew:
             verbose=True
         )
 
-        logger.info("TradingCrew initialized with LangChain LLM.")
+        logger.info("TradingCrew initialized with CrewAI LLM.")
     
     def run(
         self,

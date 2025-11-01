@@ -33,34 +33,41 @@ Agents are autonomous AI entities with specific roles, goals, and backstories.
 **Correct Pattern (2024):**
 
 ```python
-from crewai import Agent
-from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai import Agent, LLM
+import os
 
-# Get LangChain LLM instance
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
-    google_api_key="your_api_key",
-    temperature=0.1
+# Use CrewAI's LLM class with Gemini
+llm = LLM(
+    model="gemini/gemini-2.0-flash-exp",
+    api_key=os.getenv("GEMINI_API_KEY")
 )
 
-# Create agent with LangChain LLM directly
+# Create agent with CrewAI LLM
 agent = Agent(
     role="Market Data Specialist",
     goal="Fetch accurate market data",
     backstory="Expert in financial data collection",
-    llm=llm,  # Pass LangChain LLM directly
+    llm=llm,  # Pass CrewAI LLM instance
     verbose=True,
     allow_delegation=False
 )
 ```
 
-**❌ Deprecated Pattern (DO NOT USE):**
+**Key Points:**
+- Import `LLM` from `crewai` (not `crewai.llm`)
+- Use model string with "gemini/" prefix (e.g., "gemini/gemini-2.0-flash-exp")
+- Install with `pip install "crewai[google-genai]"` to enable Gemini support
+- CrewAI handles the underlying Google API integration
+
+**❌ Incorrect Patterns:**
 
 ```python
-# WRONG - Do not use crewai.llm.LLM wrapper
-from crewai.llm import LLM
+# WRONG - Don't import from crewai.llm
+from crewai.llm import LLM  # ❌ Module path changed in 1.3+
 
-llm = LLM(llm=llm_client, model="gemini/model-name")  # ❌ Outdated
+# WRONG - Don't use LangChain directly with CrewAI
+from langchain_google_genai import ChatGoogleGenerativeAI  # ❌ Use CrewAI's LLM
+llm = ChatGoogleGenerativeAI(...)
 ```
 
 #### 2. Tools
@@ -151,70 +158,89 @@ result = crew.kickoff(inputs={
 
 #### 5. LLM Configuration
 
-CrewAI 1.3+ accepts LangChain LLM instances directly.
+CrewAI 1.3+ provides its own LLM class that wraps various LLM providers.
 
 **Correct Pattern:**
 
 ```python
-from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai import LLM
+import os
 
-# Create LangChain LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",  # No "gemini/" prefix
-    google_api_key=api_key,
-    temperature=0.1
+# Create CrewAI LLM instance for Gemini
+llm = LLM(
+    model="gemini/gemini-2.0-flash-exp",  # Include "gemini/" prefix
+    api_key=os.getenv("GEMINI_API_KEY"),
+    temperature=0.1  # Optional parameters
 )
 
-# Pass directly to Agent
+# Pass to Agent
 agent = Agent(
     role="Analyst",
     goal="Analyze data",
-    llm=llm,  # LangChain LLM directly
+    llm=llm,  # CrewAI LLM instance
     verbose=True
 )
 ```
 
 **Important Notes:**
-- CrewAI wraps the LangChain LLM internally using LiteLLM
-- Ensure `litellm` package is installed: `pip install litellm`
-- Model names should NOT include provider prefix (use `gemini-2.0-flash-exp`, not `gemini/gemini-2.0-flash-exp`)
+- CrewAI's `LLM` class handles provider integration internally
+- Model names must include the provider prefix: `"gemini/model-name"`
+- Install google-genai extra: `pip install "crewai[google-genai]"`
+- The `crewai.llm.LLM` import path has changed - use `from crewai import LLM`
+- No need to use LangChain directly with CrewAI
+
+**Available Gemini Models:**
+- `gemini/gemini-2.0-flash-exp` - Latest experimental Flash model
+- `gemini/gemini-1.5-pro` - Production-ready Pro model
+- `gemini/gemini-1.5-flash` - Fast production Flash model
 
 ---
 
 ## Google Gemini API Integration
 
-### Version: Google GenAI SDK 2024 + LangChain Integration
+### Version: via CrewAI 1.3+ (Native Integration)
 
 ### Installation
 
 ```bash
-pip install langchain-google-genai>=3.0.0
+# Install CrewAI with Google Gemini support
+pip install "crewai[google-genai]"
 ```
 
-### Basic Usage
+### Basic Usage with CrewAI
 
 **Correct Pattern (2024):**
 
 ```python
-from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai import LLM
 import os
 
-# Set API key
-os.environ["GOOGLE_API_KEY"] = "your_api_key"
+# Set API key in environment or pass directly
+os.environ["GEMINI_API_KEY"] = "your_api_key"
 
-# Create client
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",  # Latest models: gemini-2.0-flash-exp, gemini-1.5-pro
-    temperature=0.1,
-    max_output_tokens=8192,
-    timeout=30,
-    max_retries=3
+# Create LLM instance
+llm = LLM(
+    model="gemini/gemini-2.0-flash-exp",
+    api_key=os.getenv("GEMINI_API_KEY"),
+    temperature=0.1
 )
 
-# Use the client
-response = llm.invoke("Explain AI in simple terms")
-print(response.content)
+# Use with CrewAI agents
+from crewai import Agent
+
+agent = Agent(
+    role="Analyst",
+    goal="Analyze market data",
+    backstory="Expert financial analyst",
+    llm=llm
+)
 ```
+
+**Key Points:**
+- CrewAI handles Gemini API integration internally
+- No need to use LangChain or other libraries
+- Model names must include `gemini/` prefix
+- API key can be set via environment variable or passed directly
 
 ### Available Models (2024)
 
@@ -477,48 +503,58 @@ ImportError: Google Gen AI native provider not available, to install: uv add "cr
 ```
 
 **Solution:**
-This error occurs when using the deprecated LLM wrapper pattern. Update to use LangChain models directly:
-
-```python
-# ❌ WRONG
-from crewai.llm import LLM
-llm = LLM(llm=llm_client, model="gemini/model")
-
-# ✅ CORRECT
-from langchain_google_genai import ChatGoogleGenerativeAI
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=key)
-```
-
-### Pitfall 2: LiteLLM Not Available
-
-**Error:**
-```
-ImportError: Fallback to LiteLLM is not available
-```
-
-**Solution:**
-Install litellm package:
+Install CrewAI with the google-genai extra:
 
 ```bash
-pip install litellm>=1.0.0
+pip install "crewai[google-genai]"
 ```
 
-### Pitfall 3: Invalid Model Name
+Then use CrewAI's LLM class properly:
+
+```python
+# ✅ CORRECT
+from crewai import LLM  # Note: from crewai, not crewai.llm
+
+llm = LLM(
+    model="gemini/gemini-2.0-flash-exp",  # Include gemini/ prefix
+    api_key=your_api_key
+)
+```
+
+### Pitfall 2: Wrong Import Path
 
 **Error:**
 ```
-Error: Model 'gemini/gemini-2.0-flash-exp' not found
+ModuleNotFoundError: No module named 'crewai.llm'
 ```
 
 **Solution:**
-Remove the provider prefix when using LangChain:
+Import `LLM` directly from `crewai`:
 
 ```python
-# ❌ WRONG
-model="gemini/gemini-2.0-flash-exp"
+# ❌ WRONG - Old import path
+from crewai.llm import LLM
 
-# ✅ CORRECT
+# ✅ CORRECT - New import path in 1.3+
+from crewai import LLM
+```
+
+### Pitfall 3: Missing Model Prefix
+
+**Error:**
+```
+Model 'gemini-2.0-flash-exp' not recognized
+```
+
+**Solution:**
+Include the provider prefix when using CrewAI's LLM:
+
+```python
+# ❌ WRONG - Missing prefix
 model="gemini-2.0-flash-exp"
+
+# ✅ CORRECT - Include prefix
+model="gemini/gemini-2.0-flash-exp"
 ```
 
 ### Pitfall 4: Alpaca TimeFrame Parsing
