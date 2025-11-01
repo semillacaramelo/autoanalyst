@@ -8,6 +8,7 @@ from typing import List
 import threading
 
 from src.agents.scanner_agents import ScannerAgents
+from src.connectors.gemini_connector_enhanced import enhanced_gemini_manager
 from src.config.settings import settings
 import json
 
@@ -41,12 +42,12 @@ class MarketScannerCrew:
             self.chief_analyst = None
             return
             
-        # Use CrewAI's LLM class with Gemini
-        # Get first available API key
-        api_keys = settings.get_gemini_keys_list()
+        # Use enhanced Gemini connector with dynamic model selection
+        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai()
+        
         llm = LLM(
-            model="gemini/gemini-2.0-flash-exp",
-            api_key=api_keys[0]
+            model=model_name,
+            api_key=api_key
         )
         agents_factory = ScannerAgents()
 

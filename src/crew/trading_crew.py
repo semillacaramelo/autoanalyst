@@ -41,6 +41,7 @@ import logging
 
 from src.agents.base_agents import TradingAgents
 from src.config.settings import settings
+from src.connectors.gemini_connector_enhanced import enhanced_gemini_manager
 from src.crew.crew_context import crew_context
 from src.crew.tasks import TradingTasks
 
@@ -63,12 +64,13 @@ class TradingCrew:
             self.crew = None
             return
             
-        # Use CrewAI's LLM class with Gemini
-        # Get first available API key
-        api_keys = settings.get_gemini_keys_list()
+        # Use enhanced Gemini connector with dynamic model selection
+        # Automatically selects best available model and key based on quota
+        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai()
+        
         llm = LLM(
-            model=f"gemini/{settings.primary_llm_models[0]}",
-            api_key=api_keys[0]
+            model=model_name,  # Already includes "gemini/" prefix
+            api_key=api_key
         )
 
         agents_factory = TradingAgents()
@@ -101,7 +103,7 @@ class TradingCrew:
             verbose=True
         )
 
-        logger.info("TradingCrew initialized with CrewAI LLM.")
+        logger.info(f"TradingCrew initialized with dynamic model selection: {model_name}")
     
     def run(
         self,
