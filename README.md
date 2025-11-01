@@ -57,16 +57,25 @@ Data Collection → Signal Generation → Risk Management → Execution
 ### ⚠️ IMPORTANT: Framework Updates (November 2024)
 
 This project has been updated to use the latest versions of all frameworks:
-- **CrewAI 1.3.0+** with modern LLM integration patterns
-- **LangChain Google GenAI 3.0.0+** for Gemini API access
+- **CrewAI 1.3.0+** with native LLM integration
+- **Google Gemini API** with dynamic model discovery and intelligent quota management
 - **Alpaca-py 0.32.0+** for trading and market data
 
-**Key Changes:**
-- Uses LangChain LLMs directly (no deprecated wrappers)
-- Requires `litellm` for CrewAI LLM support
-- Updated model naming conventions
+**Enhanced Gemini Connector Features:**
+- ✅ **Dynamic Model Discovery**: Automatically queries Gemini API for available models
+- ✅ **Intelligent Fallback**: Flash (10 RPM, 250 RPD) → Pro (2 RPM, 50 RPD) → Next key
+- ✅ **Per-Key Per-Model Quota Tracking**: Prevents over-use of any single key/model
+- ✅ **Free Tier Optimized**: Uses official rate limits, prefers Flash for higher quota
+- ✅ **Automatic Key Rotation**: Seamlessly switches keys when quota exhausted
 
-For detailed information on framework usage, see [Framework Usage Guide](docs/FRAMEWORK_USAGE_GUIDE.md).
+**Key Changes:**
+- Uses CrewAI's native `LLM` class (import from `crewai`, not `crewai.llm`)
+- Model names include `"gemini/"` prefix for CrewAI
+- Requires `crewai[google-genai]` extra for Gemini support
+
+For detailed information on framework usage, see:
+- [Master SDK Documentation](docs/MASTER_SDK_DOCUMENTATION.md) - **NEW!** Comprehensive reference
+- [Framework Usage Guide](docs/FRAMEWORK_USAGE_GUIDE.md) - Patterns and best practices
 
 ### IMPORTANT: Configuring Your Alpaca Data Feed
 Alpaca offers different data tiers. This system is designed to work with both the free and paid plans. By default, it uses the free **IEX** data feed.
