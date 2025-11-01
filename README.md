@@ -54,6 +54,20 @@ Data Collection → Signal Generation → Risk Management → Execution
 - Alpaca Markets account (paper trading is free)
 - Google Gemini API key (free tier available)
 
+### ⚠️ IMPORTANT: Framework Updates (November 2024)
+
+This project has been updated to use the latest versions of all frameworks:
+- **CrewAI 1.3.0+** with modern LLM integration patterns
+- **LangChain Google GenAI 3.0.0+** for Gemini API access
+- **Alpaca-py 0.32.0+** for trading and market data
+
+**Key Changes:**
+- Uses LangChain LLMs directly (no deprecated wrappers)
+- Requires `litellm` for CrewAI LLM support
+- Updated model naming conventions
+
+For detailed information on framework usage, see [Framework Usage Guide](docs/FRAMEWORK_USAGE_GUIDE.md).
+
 ### IMPORTANT: Configuring Your Alpaca Data Feed
 Alpaca offers different data tiers. This system is designed to work with both the free and paid plans. By default, it uses the free **IEX** data feed.
 
@@ -399,6 +413,7 @@ poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi
 
 ## 📚 Documentation
 
+- [Framework Usage Guide](docs/FRAMEWORK_USAGE_GUIDE.md) - **NEW!** Comprehensive guide for CrewAI, Gemini, and Alpaca APIs
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Agent Design](docs/AGENT_DESIGN.md) - Strategy and architecture details
 - [Testing Guide](docs/TESTING_GUIDE.md) - Comprehensive testing procedures
