@@ -261,9 +261,14 @@ class EnhancedGeminiConnectionManager:
             return "***"
         return f"...{api_key[-4:]}"
 
-    def get_llm_for_crewai(self) -> Tuple[str, str]:
+    def get_llm_for_crewai(self, estimated_requests: int = 15) -> Tuple[str, str]:
         """
         Get the best available model and API key for CrewAI.
+
+        Args:
+            estimated_requests: Estimated number of API calls this crew will make.
+                               Default is 15 (conservative estimate for a typical crew run).
+                               This is used to reserve quota and prevent 429 errors.
 
         Returns:
             (model_name, api_key): Model name with "gemini/" prefix and API key to use
@@ -272,6 +277,10 @@ class EnhancedGeminiConnectionManager:
             RuntimeError: If no model/key combination is available
 
         Thread-safe: Uses a lock to ensure atomic quota checking during parallel execution.
+        
+        Note: This method reserves quota for multiple requests (estimated_requests) to prevent
+        429 RESOURCE_EXHAUSTED errors. CrewAI makes many API calls per crew execution
+        (typically 10-20+), so we must reserve quota for all of them upfront.
         """
         with self._lock:
             # Try each key
@@ -281,15 +290,19 @@ class EnhancedGeminiConnectionManager:
                 # Try Flash models first (preferred due to higher quota)
                 for model in self.flash_models:
                     tier = ModelTier.FLASH
+                    quota = FREE_TIER_QUOTAS[tier]
 
-                    if self.quota_tracker.can_use_model(api_key, tier):
+                    # Check if we have enough quota for estimated requests
+                    if self._has_quota_for_requests(api_key, tier, estimated_requests):
                         wait_time = self.quota_tracker.get_wait_time(api_key, tier)
 
                         if wait_time == 0:
-                            # Ready to use
-                            self.quota_tracker.record_request(api_key, tier)
+                            # Ready to use - reserve quota for all estimated requests
+                            for _ in range(estimated_requests):
+                                self.quota_tracker.record_request(api_key, tier)
                             logger.info(
-                                f"Selected Flash model {model} with key {masked_key}"
+                                f"Selected Flash model {model} with key {masked_key} "
+                                f"(reserved {estimated_requests} requests, RPM: {quota.rpm}, RPD: {quota.rpd})"
                             )
                             return (f"gemini/{model}", api_key)
                         elif wait_time and wait_time > 0:
@@ -298,21 +311,32 @@ class EnhancedGeminiConnectionManager:
                                 f"Waiting {wait_time:.1f}s for Flash RPM limit on key {masked_key}"
                             )
                             time.sleep(wait_time)
-                            self.quota_tracker.record_request(api_key, tier)
+                            # Reserve quota for all estimated requests
+                            for _ in range(estimated_requests):
+                                self.quota_tracker.record_request(api_key, tier)
+                            logger.info(
+                                f"Selected Flash model {model} with key {masked_key} "
+                                f"(reserved {estimated_requests} requests after wait)"
+                            )
                             return (f"gemini/{model}", api_key)
                         # else: wait_time is None, quota exhausted, try next
 
                 # Flash exhausted on this key, try Pro
                 for model in self.pro_models:
                     tier = ModelTier.PRO
+                    quota = FREE_TIER_QUOTAS[tier]
 
-                    if self.quota_tracker.can_use_model(api_key, tier):
+                    # Check if we have enough quota for estimated requests
+                    if self._has_quota_for_requests(api_key, tier, estimated_requests):
                         wait_time = self.quota_tracker.get_wait_time(api_key, tier)
 
                         if wait_time == 0:
-                            self.quota_tracker.record_request(api_key, tier)
+                            # Reserve quota for all estimated requests
+                            for _ in range(estimated_requests):
+                                self.quota_tracker.record_request(api_key, tier)
                             logger.info(
-                                f"Flash exhausted, using Pro model {model} with key {masked_key}"
+                                f"Flash exhausted, using Pro model {model} with key {masked_key} "
+                                f"(reserved {estimated_requests} requests, RPM: {quota.rpm}, RPD: {quota.rpd})"
                             )
                             return (f"gemini/{model}", api_key)
                         elif wait_time and wait_time > 0:
@@ -320,19 +344,54 @@ class EnhancedGeminiConnectionManager:
                                 f"Waiting {wait_time:.1f}s for Pro RPM limit on key {masked_key}"
                             )
                             time.sleep(wait_time)
-                            self.quota_tracker.record_request(api_key, tier)
+                            # Reserve quota for all estimated requests
+                            for _ in range(estimated_requests):
+                                self.quota_tracker.record_request(api_key, tier)
+                            logger.info(
+                                f"Using Pro model {model} with key {masked_key} "
+                                f"(reserved {estimated_requests} requests after wait)"
+                            )
                             return (f"gemini/{model}", api_key)
 
                 logger.warning(
-                    f"Both Flash and Pro quotas exhausted on key {masked_key}, trying next key"
+                    f"Insufficient quota for {estimated_requests} requests on key {masked_key}, trying next key"
                 )
 
             # All keys and models exhausted
             raise RuntimeError(
-                f"All API keys exhausted their quotas. "
+                f"All API keys exhausted their quotas for {estimated_requests} requests. "
                 f"Flash limit: {FREE_TIER_QUOTAS[ModelTier.FLASH].rpd} req/day, "
-                f"Pro limit: {FREE_TIER_QUOTAS[ModelTier.PRO].rpd} req/day per key"
+                f"Pro limit: {FREE_TIER_QUOTAS[ModelTier.PRO].rpd} req/day per key. "
+                f"Consider adding more API keys or reducing parallel execution."
             )
+
+    def _has_quota_for_requests(self, api_key: str, tier: ModelTier, num_requests: int) -> bool:
+        """
+        Check if there's enough quota available for the specified number of requests.
+        
+        Args:
+            api_key: The API key to check
+            tier: The model tier (Flash or Pro)
+            num_requests: Number of requests to check for
+            
+        Returns:
+            True if enough quota is available, False otherwise
+        """
+        now = time.time()
+        quota = FREE_TIER_QUOTAS[tier]
+        
+        minute_window = self.quota_tracker.minute_windows[api_key][tier]
+        day_window = self.quota_tracker.day_windows[api_key][tier]
+        
+        # Clean old entries
+        while minute_window and now - minute_window[0] > 60:
+            minute_window.popleft()
+        while day_window and now - day_window[0] > 86400:
+            day_window.popleft()
+        
+        # Check if we have room for num_requests
+        return (len(minute_window) + num_requests <= quota.rpm and 
+                len(day_window) + num_requests <= quota.rpd)
 
     def refresh_model_list(self):
         """Manually refresh the list of available models"""
