@@ -97,15 +97,27 @@ class MarketScannerCrew:
 
 # Global instance factory function for lazy initialization
 _market_scanner_crew_instance = None
+_market_scanner_crew_lock = None
 
 def get_market_scanner_crew() -> MarketScannerCrew:
     """
     Get or create the global market scanner crew instance.
     Lazy initialization to avoid API calls during module import.
+    Thread-safe using double-checked locking pattern.
     """
-    global _market_scanner_crew_instance
+    global _market_scanner_crew_instance, _market_scanner_crew_lock
+    
     if _market_scanner_crew_instance is None:
-        _market_scanner_crew_instance = MarketScannerCrew()
+        # Import threading only when needed to avoid overhead
+        if _market_scanner_crew_lock is None:
+            import threading
+            _market_scanner_crew_lock = threading.Lock()
+        
+        with _market_scanner_crew_lock:
+            # Double-check: another thread might have created instance while we waited
+            if _market_scanner_crew_instance is None:
+                _market_scanner_crew_instance = MarketScannerCrew()
+    
     return _market_scanner_crew_instance
 
 # For backwards compatibility, provide a property-like accessor

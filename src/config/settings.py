@@ -92,13 +92,23 @@ class Settings(BaseSettings):
         
         Parses comma-separated API keys from configuration.
         Results are cached since keys don't change during runtime.
+        Thread-safe implementation.
         
         Returns:
             List of API key strings, with whitespace stripped
         """
+        # Use a lock for thread-safe caching
+        if not hasattr(self, '_keys_lock'):
+            import threading
+            self._keys_lock = threading.Lock()
+        
         # Cache the parsed keys to avoid repeated string processing
         if not hasattr(self, '_cached_keys'):
-            self._cached_keys = [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+            with self._keys_lock:
+                # Double-check: another thread might have cached while we waited
+                if not hasattr(self, '_cached_keys'):
+                    self._cached_keys = [k.strip() for k in self.gemini_api_keys.split(',') if k.strip()]
+        
         return self._cached_keys
 
     @validator("default_llm_model")

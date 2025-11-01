@@ -156,15 +156,27 @@ class TradingCrew:
 
 # Global instance factory function for lazy initialization
 _trading_crew_instance = None
+_trading_crew_lock = None
 
 def get_trading_crew() -> TradingCrew:
     """
     Get or create the global trading crew instance.
     Lazy initialization to avoid API calls during module import.
+    Thread-safe using double-checked locking pattern.
     """
-    global _trading_crew_instance
+    global _trading_crew_instance, _trading_crew_lock
+    
     if _trading_crew_instance is None:
-        _trading_crew_instance = TradingCrew()
+        # Import threading only when needed to avoid overhead
+        if _trading_crew_lock is None:
+            import threading
+            _trading_crew_lock = threading.Lock()
+        
+        with _trading_crew_lock:
+            # Double-check: another thread might have created instance while we waited
+            if _trading_crew_instance is None:
+                _trading_crew_instance = TradingCrew()
+    
     return _trading_crew_instance
 
 # For backwards compatibility, provide a property-like accessor
