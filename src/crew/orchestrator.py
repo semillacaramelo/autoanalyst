@@ -24,6 +24,7 @@ Usage:
 """
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 from src.crew.market_scanner_crew import market_scanner_crew
@@ -49,6 +50,7 @@ class TradingOrchestrator:
         self.market_scanner = market_scanner_crew
         self.active_crews: Dict[str, TradingCrew] = {}
         self.executor = ThreadPoolExecutor(max_workers=3)  # Limit parallel crews to 3
+        self.global_rate_limiter = None  # Placeholder for future rate limiter implementation
 
     def _run_trading_crew(self, symbol: str, strategy: str):
         """

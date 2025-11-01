@@ -87,11 +87,15 @@ class BacktesterV2:
         if not trades:
             return {"trades": 0, "pnl": 0, "win_rate": 0, "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0, "max_drawdown": 0}
 
+        # Count complete trade pairs (BUY-SELL)
+        num_complete_trades = len(trades) // 2
+        
         if len(trades) % 2 != 0:
-            logger.warning("Odd number of trades detected (%d). The last trade will be ignored for performance calculation.", len(trades))
-            trades = trades[:-1]
-            if not trades:
-                return {"trades": 0, "pnl": 0, "win_rate": 0, "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0, "max_drawdown": 0}
+            logger.info("Open position detected (%d trades). Calculating metrics for %d completed trades.", len(trades), num_complete_trades)
+            if num_complete_trades == 0:
+                return {"trades": 0, "pnl": 0, "win_rate": 0, "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0, "max_drawdown": 0, "note": "No completed trades (1 open position)"}
+            # Use only complete pairs for calculation
+            trades = trades[:num_complete_trades * 2]
 
         pnl = 0
         wins = 0
