@@ -30,7 +30,7 @@ def validate_gemini_keys():
         console.print(f"  Key {i}: {masked_key} [green]✓[/green]")
     
     console.print("  [yellow]Note: Skipping live API test (requires network connectivity)[/yellow]")
-    console.print("  [dim]Keys are formatted correctly and loaded from environment[/dim]")
+    console.print("  [dim]Keys found and parsed successfully[/dim]")
     
     # Live connectivity test is skipped since it may hang in restricted networks
     # The actual API validation happens when the crew runs

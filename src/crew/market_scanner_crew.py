@@ -123,9 +123,16 @@ class _MarketScannerCrewProxy:
     Proxy that lazily initializes the market scanner crew on first access.
     
     Only the 'run' method is explicitly supported to maintain clear interface.
+    Accessing other attributes will raise AttributeError.
     """
     def run(self, *args, **kwargs):
         """Run the market scanner crew to identify opportunities."""
         return get_market_scanner_crew().run(*args, **kwargs)
+    
+    def __getattr__(self, name):
+        raise AttributeError(
+            f"'_MarketScannerCrewProxy' only supports the 'run' method. "
+            f"Attribute '{name}' is not available."
+        )
 
 market_scanner_crew = _MarketScannerCrewProxy()

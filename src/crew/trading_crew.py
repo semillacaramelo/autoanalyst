@@ -181,10 +181,16 @@ class _TradingCrewProxy:
     Proxy that lazily initializes the trading crew on first access.
     
     Only the 'run' method is explicitly supported to maintain clear interface.
-    Other attributes will be proxied but may not work as expected.
+    Accessing other attributes will raise AttributeError.
     """
     def run(self, *args, **kwargs):
         """Execute the trading crew workflow."""
         return get_trading_crew().run(*args, **kwargs)
+    
+    def __getattr__(self, name):
+        raise AttributeError(
+            f"'_TradingCrewProxy' only supports the 'run' method. "
+            f"Attribute '{name}' is not available."
+        )
 
 trading_crew = _TradingCrewProxy()

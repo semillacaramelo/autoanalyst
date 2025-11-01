@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     cache_enabled: bool = Field(default=True)
     cache_ttl: int = Field(default=300, ge=0)
     
+    def __init__(self, **data):
+        """Initialize settings and thread-safe lock for caching."""
+        super().__init__(**data)
+        self._keys_lock = threading.Lock()
+    
     @validator("gemini_api_keys")
     def validate_api_keys(cls, v):
         """Ensure at least one API key is provided."""
@@ -98,10 +103,6 @@ class Settings(BaseSettings):
         Returns:
             List of API key strings, with whitespace stripped
         """
-        # Initialize lock once at first access
-        if not hasattr(self, '_keys_lock'):
-            self._keys_lock = threading.Lock()
-        
         # Cache the parsed keys to avoid repeated string processing
         if not hasattr(self, '_cached_keys'):
             with self._keys_lock:
