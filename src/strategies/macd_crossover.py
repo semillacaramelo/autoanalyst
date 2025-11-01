@@ -63,7 +63,7 @@ class MACDCrossoverStrategy(TradingStrategy):
             }
         }
 
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
         """Apply volume, RSI, and MACD divergence confirmation."""
         if signal["signal"] == "HOLD":
             return signal
@@ -82,20 +82,28 @@ class MACDCrossoverStrategy(TradingStrategy):
         rsi_confirm = (rsi_latest > 50) if signal["signal"] == "BUY" else (rsi_latest < 50)
 
         confirmations = []
+        confidence_boost = 0.0
+
         if volume_confirm["confirmed"]:
-            confirmations.append("Volume")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.10)
+            if data_feed == 'sip':
+                confidence_boost += 0.15
+                confirmations.append("Volume (SIP)")
+            else:
+                confidence_boost += 0.05
+                confirmations.append("Volume (IEX - Low Weight)")
+
         if rsi_confirm:
+            confidence_boost += 0.10
             confirmations.append("RSI Momentum")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.10)
+
         if divergence_confirm:
+            confidence_boost += 0.25
             confirmations.append(f"MACD {divergence['type'].capitalize()} Divergence")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.25)
             signal["details"]["divergence_description"] = divergence["description"]
 
-
         if confirmations:
-            signal["validation"] = f"{' and '.join(confirmations)} confirmed"
+            signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
+            signal["validation"] = ", ".join(confirmations)
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
             signal["validation"] = "No confirmation"

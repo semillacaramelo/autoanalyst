@@ -67,23 +67,36 @@ class TripleMovingAverageStrategy(TradingStrategy):
             }
         }
 
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
         """Apply confirmation layers."""
+        if signal["signal"] == "HOLD":
+            return signal
+
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
         trend_confirm = TechnicalAnalysisTools.calculate_trend_strength(df)
 
-        if signal["signal"] != "HOLD":
-            if volume_confirm["confirmed"] and trend_confirm["has_strong_trend"]:
-                signal["confidence"] = min(1.0, signal["confidence"] + 0.2)
-                signal["validation"] = "Full confirmation"
-            elif volume_confirm["confirmed"]:
-                signal["confidence"] = min(1.0, signal["confidence"] + 0.1)
-                signal["validation"] = "Volume confirmation only"
-            elif trend_confirm["has_strong_trend"]:
-                signal["confidence"] = min(1.0, signal["confidence"] + 0.1)
-                signal["validation"] = "Trend confirmation only"
-            else:
-                signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
-                signal["validation"] = "No confirmation"
+        validation_notes = []
+        confidence_boost = 0.0
+
+        # Data-feed aware volume confirmation
+        if volume_confirm["confirmed"]:
+            if data_feed == 'sip':
+                confidence_boost += 0.15
+                validation_notes.append("Volume (SIP)")
+            else: # 'iex'
+                confidence_boost += 0.05
+                validation_notes.append("Volume (IEX - Low Weight)")
+
+        # Trend confirmation
+        if trend_confirm["has_strong_trend"]:
+            confidence_boost += 0.15
+            validation_notes.append("Trend Strength")
+
+        if not validation_notes:
+            signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
+            signal["validation"] = "No confirmation"
+        else:
+            signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
+            signal["validation"] = ", ".join(validation_notes)
 
         return signal

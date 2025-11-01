@@ -53,7 +53,7 @@ class RSIBreakoutStrategy(TradingStrategy):
             }
         }
 
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
         """Apply confirmation layers: Volume, ADX, and Price vs. 50 SMA."""
         if signal["signal"] == "HOLD":
             return signal
@@ -68,20 +68,25 @@ class RSIBreakoutStrategy(TradingStrategy):
         adx_confirm = adx_latest > 25
         price_confirm = price_latest > sma_50_latest if signal["signal"] == "BUY" else price_latest < sma_50_latest
 
-        confirmation_score = 0
-        if volume_confirm["confirmed"]:
-            confirmation_score += 1
-        if adx_confirm:
-            confirmation_score += 1
-        if price_confirm:
-            confirmation_score += 1
+        confirmations = []
+        confidence_boost = 0.0
 
-        if confirmation_score == 3:
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.3)
-            signal["validation"] = "Full confirmation (Volume, ADX, SMA)"
-        elif confirmation_score > 0:
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.1 * confirmation_score)
-            signal["validation"] = f"{confirmation_score}/3 confirmations met"
+        if volume_confirm["confirmed"]:
+            boost = 0.15 if data_feed == 'sip' else 0.05
+            confidence_boost += boost
+            confirmations.append(f"Volume ({data_feed.upper()})")
+
+        if adx_confirm:
+            confidence_boost += 0.10
+            confirmations.append("ADX Trend")
+
+        if price_confirm:
+            confidence_boost += 0.10
+            confirmations.append("Price vs SMA50")
+
+        if confirmations:
+            signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
+            signal["validation"] = ", ".join(confirmations)
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.2)
             signal["validation"] = "No confirmations met"
