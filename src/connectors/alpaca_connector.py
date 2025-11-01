@@ -139,8 +139,16 @@ class AlpacaConnectionManager:
             
             # Calculate start/end times
             if start and end:
-                start_dt = pd.to_datetime(start).tz_localize('America/New_York')
-                end_dt = pd.to_datetime(end).tz_localize('America/New_York')
+                start_dt = pd.to_datetime(start)
+                if start_dt.tzinfo is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                    start_dt = start_dt.tz_localize('America/New_York')
+                else:
+                    start_dt = start_dt.tz_convert('America/New_York')
+                end_dt = pd.to_datetime(end)
+                if end_dt.tzinfo is None or end_dt.tzinfo.utcoffset(end_dt) is None:
+                    end_dt = end_dt.tz_localize('America/New_York')
+                else:
+                    end_dt = end_dt.tz_convert('America/New_York')
             else:
                 end_dt = datetime.now()
                 if tf_unit == TimeFrameUnit.Day:
