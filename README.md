@@ -54,6 +54,26 @@ Data Collection → Signal Generation → Risk Management → Execution
 - Alpaca Markets account (paper trading is free)
 - Google Gemini API key (free tier available)
 
+### IMPORTANT: Configuring Your Alpaca Data Feed
+Alpaca offers different data tiers. This system is designed to work with both the free and paid plans. By default, it uses the free **IEX** data feed.
+
+#### Free Users (Default)
+- **Data Feed:** IEX (Investors Exchange)
+- **Cost:** Free
+- **Details:** This feed provides real-time data but only represents a fraction of the total U.S. market volume.
+- **Impact:**
+    - Price-based strategies (like Moving Averages) will work perfectly.
+    - Volume-based indicators or confirmations may be less reliable due to the limited data scope.
+
+#### Paid Subscribers
+- **Data Feed:** SIP (Securities Information Processor)
+- **Cost:** Requires a paid Alpaca data subscription.
+- **Details:** This is a professional-grade data feed that consolidates data from all U.S. exchanges, providing a complete view of market activity.
+- **Configuration:** To use this feed, you must change the following setting in your `.env` file:
+  ```
+  ALPACA_DATA_FEED="sip"
+  ```
+
 ### Installation
 
 ```bash

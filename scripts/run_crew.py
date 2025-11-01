@@ -158,6 +158,7 @@ def status(detailed, recommendations):
         console.print(f"  ✓ Account Status: {account['status']}")
         console.print(f"  ✓ Equity: ${account['equity']:_}")
         console.print(f"  ✓ Mode: {'Paper Trading' if alpaca_manager.is_paper else 'LIVE'}")
+        console.print(f"  ✓ Data Feed: [bold yellow]{settings.alpaca_data_feed.upper()}[/bold yellow]")
     except Exception as e:
         console.print(f"  [red]✗ Error: {e}[/red]")
 

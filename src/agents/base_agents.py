@@ -12,6 +12,7 @@ correct adapter instance.
 
 from crewai import Agent
 from crewai.tools import tool
+from src.config.settings import settings
 from src.tools.market_data_tools import market_data_tools
 from src.tools.analysis_tools import technical_analysis
 from src.tools.execution_tools import execution_tools
@@ -43,7 +44,7 @@ def generate_signal_tool(strategy_name: str) -> dict:
     try:
         strategy = get_strategy(strategy_name)
         signal = strategy.generate_signal(df)
-        validated_signal = strategy.validate_signal(df, signal)
+        validated_signal = strategy.validate_signal(df, signal, data_feed=settings.alpaca_data_feed)
         return validated_signal
     except Exception as e:
         return {"signal": "HOLD", "error": str(e)}
