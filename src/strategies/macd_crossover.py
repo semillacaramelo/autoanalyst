@@ -63,28 +63,47 @@ class MACDCrossoverStrategy(TradingStrategy):
             }
         }
 
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply volume and RSI momentum confirmation."""
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
+        """Apply volume, RSI, and MACD divergence confirmation."""
         if signal["signal"] == "HOLD":
             return signal
 
         indicators = self.calculate_indicators(df)
         rsi_latest = indicators["rsi"].iloc[-1]
+        histogram = indicators["histogram"]
         volume_confirm = TechnicalAnalysisTools.calculate_volume_confirmation(df)
+
+        # Divergence check
+        divergence = TechnicalAnalysisTools.detect_macd_divergence(df, histogram)
+        divergence_confirm = (divergence["type"] == "bullish" and signal["signal"] == "BUY") or \
+                             (divergence["type"] == "bearish" and signal["signal"] == "SELL")
 
         # Momentum check
         rsi_confirm = (rsi_latest > 50) if signal["signal"] == "BUY" else (rsi_latest < 50)
 
         confirmations = []
+        confidence_boost = 0.0
+
         if volume_confirm["confirmed"]:
-            confirmations.append("Volume")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+            if data_feed == 'sip':
+                confidence_boost += 0.15
+                confirmations.append("Volume (SIP)")
+            else:
+                confidence_boost += 0.05
+                confirmations.append("Volume (IEX - Low Weight)")
+
         if rsi_confirm:
+            confidence_boost += 0.10
             confirmations.append("RSI Momentum")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+
+        if divergence_confirm:
+            confidence_boost += 0.25
+            confirmations.append(f"MACD {divergence['type'].capitalize()} Divergence")
+            signal["details"]["divergence_description"] = divergence["description"]
 
         if confirmations:
-            signal["validation"] = f"{' and '.join(confirmations)} confirmed"
+            signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
+            signal["validation"] = ", ".join(confirmations)
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
             signal["validation"] = "No confirmation"

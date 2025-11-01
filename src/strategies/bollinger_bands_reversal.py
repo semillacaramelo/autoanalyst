@@ -58,14 +58,10 @@ class BollingerBandsReversalStrategy(TradingStrategy):
             }
         }
 
-    def _is_bullish_candle(self, ohlc: pd.Series) -> bool:
-        return ohlc['close'] > ohlc['open'] and (ohlc['close'] - ohlc['open']) > (ohlc['high'] - ohlc['low']) * 0.6
-
-    def _is_bearish_candle(self, ohlc: pd.Series) -> bool:
-        return ohlc['open'] > ohlc['close'] and (ohlc['open'] - ohlc['close']) > (ohlc['high'] - ohlc['low']) * 0.6
-
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply volume, volatility, and candlestick pattern confirmation."""
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, _data_feed: str) -> Dict:
+        """Apply volatility and advanced candlestick pattern confirmation."""
+        # Note: This strategy is not volume-dependent, so the _data_feed parameter is unused
+        # but required by the interface contract.
         if signal["signal"] == "HOLD":
             return signal
 
@@ -75,21 +71,19 @@ class BollingerBandsReversalStrategy(TradingStrategy):
         # Volatility check: Look for a recent squeeze
         volatility_confirm = bb_width.iloc[-1] > bb_width.rolling(10).min().iloc[-1]
 
-        # Candlestick check
-        last_candle = df.iloc[-1]
-        candle_confirm = False
-        if signal["signal"] == "BUY" and self._is_bullish_candle(last_candle):
-            candle_confirm = True
-        elif signal["signal"] == "SELL" and self._is_bearish_candle(last_candle):
-            candle_confirm = True
+        # Candlestick pattern recognition
+        pattern_info = TechnicalAnalysisTools.recognize_candlestick_patterns(df)
+        pattern_confirm = (pattern_info["type"] == "bullish" and signal["signal"] == "BUY") or \
+                          (pattern_info["type"] == "bearish" and signal["signal"] == "SELL")
 
         confirmations = []
         if volatility_confirm:
             confirmations.append("Volatility Expansion")
             signal["confidence"] = min(1.0, signal["confidence"] + 0.1)
-        if candle_confirm:
-            confirmations.append("Candlestick Pattern")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.15)
+        if pattern_confirm:
+            confirmations.append(f"Candlestick Pattern ({pattern_info['pattern']})")
+            signal["confidence"] = min(1.0, signal["confidence"] + 0.2)
+            signal["details"]["candlestick_pattern"] = pattern_info['pattern']
 
         if confirmations:
             signal["validation"] = f"{' and '.join(confirmations)} confirmed"

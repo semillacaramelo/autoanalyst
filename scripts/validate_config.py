@@ -21,45 +21,43 @@ console = Console()
 
 
 def validate_gemini_keys():
-	"""Test Gemini API key connectivity."""
-	keys = settings.get_gemini_keys_list()
-	console.print(f"\n[cyan]Testing {len(keys)} Gemini API key(s)...[/cyan]")
+    """Test Gemini API key connectivity."""
+    keys = settings.get_gemini_keys_list()
+    console.print(f"\n[cyan]Testing {len(keys)} Gemini API key(s)...[/cyan]")
     
-	# TODO: Implement actual API test call
-	for i, key in enumerate(keys, 1):
-		masked_key = f"{key[:10]}...{key[-4:]}"
-		console.print(f"  Key {i}: {masked_key} [green]✓[/green]")
+    for i, key in enumerate(keys, 1):
+        masked_key = f"{key[:10]}...{key[-4:]}"
+        console.print(f"  Key {i}: {masked_key} [green]✓[/green]")
     
-	# Live connectivity test: try to obtain an LLM adapter (metadata check)
-	try:
-		adapter = gemini_manager.get_adapter()
-		console.print(f"  Adapter provider: {getattr(adapter,'provider',None)}")
-		console.print(f"  Adapter model: {getattr(adapter,'model',None)}")
-		if getattr(adapter, 'provider', None) != 'google' or not getattr(adapter, 'model', '').startswith('google/'):
-			console.print("  Adapter metadata invalid [red]✗[/red]")
-			return False
-		console.print("  Live test: Gemini adapter created [green]✓[/green]")
-	except Exception as e:
-		console.print(f"  Live test failed: {e} [red]✗[/red]")
-		return False
+    # Live connectivity test: try to obtain a client
+    try:
+        client = gemini_manager.get_client()
+        console.print(f"  Live test: Gemini client for model '{client.model}' created [green]✓[/green]")
+        # Optional: a lightweight check with the client
+        client.invoke("Health check")
+        console.print(f"  Live test: Health check invocation successful [green]✓[/green]")
+    except Exception as e:
+        console.print(f"  Live test failed: {e} [red]✗[/red]")
+        return False
     
-	return True
-
+    return True
 
 def validate_alpaca_connection():
-	"""Test Alpaca API connectivity."""
-	console.print("\n[cyan]Testing Alpaca API connection...[/cyan]")
+    """Test Alpaca API connectivity."""
+    console.print("\n[cyan]Testing Alpaca API connection...[/cyan]")
     
-	# Live connectivity test: try to fetch account info
-	try:
-		acct = alpaca_manager.get_account()
-		console.print(f"  Base URL: {settings.alpaca_base_url} [green]✓[/green]")
-		console.print(f"  Mode: {'Paper Trading' if alpaca_manager.is_paper else 'LIVE TRADING'} [green]✓[/green]")
-		console.print(f"  Account Status: {acct.get('status')} (Equity: ${acct.get('equity')}) [green]✓[/green]")
-		return True
-	except Exception as e:
-		console.print(f"  Live test failed: {e} [red]✗[/red]")
-		return False
+    # Live connectivity test: try to fetch account info
+    try:
+        acct = alpaca_manager.get_account()
+        console.print(f"  Base URL: {settings.alpaca_base_url} [green]✓[/green]")
+        console.print(f"  Mode: {'Paper Trading' if alpaca_manager.is_paper else 'LIVE TRADING'} [green]✓[/green]")
+        equity = acct.get('equity')
+        equity_str = f"${equity:,.2f}" if isinstance(equity, (int, float)) else ("N/A" if equity is not None else "N/A")
+        console.print(f"  Account Status: {acct.get('status')} (Equity: {equity_str}) [green]✓[/green]")
+        return True
+    except Exception as e:
+        console.print(f"  Live test failed: {e} [red]✗[/red]")
+        return False
 
 
 def validate_strategy_params():

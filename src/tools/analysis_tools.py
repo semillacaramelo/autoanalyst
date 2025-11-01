@@ -252,5 +252,124 @@ class TechnicalAnalysisTools:
                 "error": str(e)
             }
 
+    @staticmethod
+    def detect_macd_divergence(df: pd.DataFrame, histogram: pd.Series, period: int = 14) -> Dict:
+        """
+        Detect Bullish and Bearish MACD Divergence without scipy.
+
+        Args:
+            df: OHLCV DataFrame
+            histogram: MACD Histogram series
+            period: Lookback period to find peaks/troughs.
+
+        Returns:
+            Dict indicating divergence type ('bullish', 'bearish', or 'none')
+        """
+        divergence = {"type": "none", "description": ""}
+
+        # 'period' defines the window for finding a pivot, e.g., 7 bars on each side for a 15-bar window.
+        pivot_window = period + 1 if period % 2 == 0 else period
+
+        # Find pivot highs and lows
+        price_highs_mask = df['high'].rolling(window=pivot_window, center=True).max() == df['high']
+        price_lows_mask = df['low'].rolling(window=pivot_window, center=True).min() == df['low']
+        macd_highs_mask = histogram.rolling(window=pivot_window, center=True).max() == histogram
+        macd_lows_mask = histogram.rolling(window=pivot_window, center=True).min() == histogram
+
+        price_highs_idx = df.index[price_highs_mask]
+        price_lows_idx = df.index[price_lows_mask]
+        macd_highs_idx = histogram.index[macd_highs_mask]
+        macd_lows_idx = histogram.index[macd_lows_mask]
+
+        is_bullish = False
+        # Bullish Divergence: Lower low in price, higher low in MACD
+        if len(price_lows_idx) >= 2 and len(macd_lows_idx) >= 2:
+            last_price_low_val = df['low'].loc[price_lows_idx[-1]]
+            prev_price_low_val = df['low'].loc[price_lows_idx[-2]]
+
+            last_macd_low_val = histogram.loc[macd_lows_idx[-1]]
+            prev_macd_low_val = histogram.loc[macd_lows_idx[-2]]
+
+            # Basic check: last two pivots
+            if last_price_low_val < prev_price_low_val and last_macd_low_val > prev_macd_low_val:
+                divergence = {
+                    "type": "bullish",
+                    "description": "Lower low in price, higher low in MACD histogram."
+                }
+                is_bullish = True
+
+        is_bearish = False
+        # Bearish Divergence: Higher high in price, lower high in MACD
+        if len(price_highs_idx) >= 2 and len(macd_highs_idx) >= 2:
+            last_price_high_val = df['high'].loc[price_highs_idx[-1]]
+            prev_price_high_val = df['high'].loc[price_highs_idx[-2]]
+
+            last_macd_high_val = histogram.loc[macd_highs_idx[-1]]
+            prev_macd_high_val = histogram.loc[macd_highs_idx[-2]]
+
+            if last_price_high_val > prev_price_high_val and last_macd_high_val < prev_macd_high_val:
+                divergence = {
+                    "type": "bearish",
+                    "description": "Higher high in price, lower high in MACD histogram."
+                }
+                is_bearish = True
+
+        if is_bullish and is_bearish:
+            # Prioritize the most recent signal
+            last_bullish_event = max(price_lows_idx[-1], macd_lows_idx[-1])
+            last_bearish_event = max(price_highs_idx[-1], macd_highs_idx[-1])
+            if last_bullish_event > last_bearish_event:
+                divergence['type'] = 'bullish'
+                divergence['description'] = "Lower low in price, higher low in MACD histogram."
+            else:
+                divergence['type'] = 'bearish'
+                divergence['description'] = "Higher high in price, lower high in MACD histogram."
+
+        return divergence
+
+    @staticmethod
+    def recognize_candlestick_patterns(df: pd.DataFrame) -> Dict:
+        """
+        Recognize common reversal candlestick patterns.
+
+        Args:
+            df: OHLCV DataFrame
+
+        Returns:
+            Dict with pattern name and type ('bullish', 'bearish', or 'none')
+        """
+        if len(df) < 2:
+            return {"pattern": "none", "type": "none"}
+
+        last_candle = df.iloc[-1]
+        prev_candle = df.iloc[-2]
+
+        o, h, l, c = last_candle['open'], last_candle['high'], last_candle['low'], last_candle['close']
+        body_size = abs(c - o)
+        upper_wick = h - max(o, c)
+        lower_wick = min(o, c) - l
+
+        # Bullish Engulfing
+        if (prev_candle['close'] < prev_candle['open'] and
+            c > o and c > prev_candle['open'] and o < prev_candle['close']):
+            return {"pattern": "Bullish Engulfing", "type": "bullish"}
+
+        # Bearish Engulfing
+        if (prev_candle['close'] > prev_candle['open'] and
+            c < o and c < prev_candle['open'] and o > prev_candle['close']):
+            return {"pattern": "Bearish Engulfing", "type": "bearish"}
+
+        # Hammer (check for small downtrend)
+        is_downtrend = df['close'].iloc[-5:-1].is_monotonic_decreasing
+        if is_downtrend and body_size > 0.001 and lower_wick > body_size * 2 and upper_wick < body_size:
+            return {"pattern": "Hammer", "type": "bullish"}
+
+        # Shooting Star (check for small uptrend)
+        is_uptrend = df['close'].iloc[-5:-1].is_monotonic_increasing
+        if is_uptrend and body_size > 0.001 and upper_wick > body_size * 2 and lower_wick < body_size:
+            return {"pattern": "Shooting Star", "type": "bearish"}
+
+        return {"pattern": "none", "type": "none"}
+
 # Global instance
 technical_analysis = TechnicalAnalysisTools()

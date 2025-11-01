@@ -16,30 +16,31 @@ A modular, backend-first trading system powered by CrewAI multi-agent framework,
 
 ## 📋 Features
 
-- **Multi-Agent System:** 5 specialized AI agents working in sequence
-- **Proven Strategy:** Enhanced Triple Moving Average (3MA) with confirmation layers
+- **Multi-Agent System:** 4 specialized AI agents working in sequence
+- **Multi-Strategy Framework:** Supports multiple, dynamically selectable trading strategies.
 - **Risk Management:** Portfolio-level constraints and position sizing
 - **Paper Trading:** Safe testing with Alpaca paper trading account
 - **Backtesting:** Test strategies on historical data
 - **CLI Interface:** User-friendly command-line tools
-- **Monitoring:** Real-time system health checks and alerts
+- **Monitoring:** Real-time interactive dashboard and status checks
 
 ---
 
 ## 🏗️ Architecture
 
+The system is composed of a 4-agent crew that works sequentially to analyze market data, generate signals, manage risk, and execute trades.
+
 ```
-Data Collection → Signal Generation → Validation → Risk Management → Execution
-     Agent 1    →      Agent 2      →  Agent 3   →     Agent 4     →  Agent 5
+Data Collection → Signal Generation → Risk Management → Execution
+     Agent 1    →      Agent 2      →     Agent 3     →    Agent 4
 ```
 
 ### Agent Responsibilities
 
-1. **DataCollectorAgent:** Fetches and validates OHLCV market data
-2. **SignalGeneratorAgent:** Calculates 3MA indicators and generates signals
-3. **SignalValidatorAgent:** Applies volume, volatility, and trend confirmations
-4. **RiskManagerAgent:** Enforces position sizing and portfolio constraints
-5. **ExecutionAgent:** Places approved trades via Alpaca API
+1. **DataCollectorAgent:** Fetches and validates OHLCV market data.
+2. **SignalGeneratorAgent:** Applies a selected trading strategy to generate and validate a signal.
+3. **RiskManagerAgent:** Enforces position sizing and portfolio constraints.
+4. **ExecutionAgent:** Places approved trades via the Alpaca API.
 
 ---
 
@@ -52,6 +53,26 @@ Data Collection → Signal Generation → Validation → Risk Management → Exe
 - WSL2 (if on Windows)
 - Alpaca Markets account (paper trading is free)
 - Google Gemini API key (free tier available)
+
+### IMPORTANT: Configuring Your Alpaca Data Feed
+Alpaca offers different data tiers. This system is designed to work with both the free and paid plans. By default, it uses the free **IEX** data feed.
+
+#### Free Users (Default)
+- **Data Feed:** IEX (Investors Exchange)
+- **Cost:** Free
+- **Details:** This feed provides real-time data but only represents a fraction of the total U.S. market volume.
+- **Impact:**
+    - Price-based strategies (like Moving Averages) will work perfectly.
+    - Volume-based indicators or confirmations may be less reliable due to the limited data scope.
+
+#### Paid Subscribers
+- **Data Feed:** SIP (Securities Information Processor)
+- **Cost:** Requires a paid Alpaca data subscription.
+- **Details:** This is a professional-grade data feed that consolidates data from all U.S. exchanges, providing a complete view of market activity.
+- **Configuration:** To use this feed, you must change the following setting in your `.env` file:
+  ```
+  ALPACA_DATA_FEED="sip"
+  ```
 
 ### Installation
 
@@ -101,53 +122,80 @@ DRY_RUN=true  # Safe mode
 LOG_LEVEL=INFO
 ```
 
-### Usage
+### CLI Usage
+The primary way to interact with the bot is through the CLI script `scripts/run_crew.py`.
 
+**1. Check System Status**
+Before running any trading operations, check that all API connections are working.
 ```bash
-# Check system status
 poetry run python scripts/run_crew.py status
+```
+```
+╭─────────────────────╮
+│ System Status Check │
+╰─────────────────────╯
 
-# Run single trading crew execution
-poetry run python scripts/run_crew.py run
+Alpaca API Status:
+  ✓ Account Status: AccountStatus.ACTIVE
+  ✓ Equity: $99_431.01
+  ✓ Mode: Paper Trading
+  ✓ Data Feed: IEX
 
-# Run with custom parameters
-poetry run python scripts/run_crew.py run --symbol QQQ --limit 200
+Gemini API Status:
+  ✓ API keys found: 10
+```
 
-# View all commands
-poetry run python scripts/run_crew.py --help
-
-### Running the Bot in a Loop
-
-To run the trading bot continuously and monitor its status in real-time, use the `main.py` script:
-
+**2. Run a Single Trading Crew**
+To bypass the scanner and run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
 ```bash
-# Run for 1 hour with a 60-second interval
-poetry run python main.py
+poetry run python scripts/run_crew.py run --symbol SPY --strategy 3ma --timeframe 1Day
 ```
 ```
+╭───────────────────────────────────╮
+│ AI-Driven Trading Crew            │
+│ Backend-First Development Version │
+╰───────────────────────────────────╯
 
----
+Running in Single Crew mode...
+ Symbol    SPY
+ Strategy  3ma
+ Mode      DRY RUN
+╭─────────────────────────── Crew Execution Started ───────────────────────────╮
+│                                                                              │
+│  Crew Execution Started                                                      │
+│  Name: crew                                                                  │
+│  ID: e90d92cb-3761-44bd-85d6-e128cde051cc                                    │
+│  Tool Args:                                                                  │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+...
+╭──────────────────────────────────────────╮
+│ ✓ Crew execution completed successfully! │
+╰──────────────────────────────────────────╯
 
-## 📊 Trading Strategy
+Result: {"status": "SKIPPED", "reason": "Trade not approved. Signal is HOLD.",
+"order_id": null, "trade_details": {"symbol": null, "qty": 0, "side": null}}
+```
 
-### Triple Moving Average (3MA)
+**3. Run the Market Scanner Only**
+To run the market scanner to see the top recommended assets without executing any trades:
+```bash
+poetry run python scripts/run_crew.py scan
+```
+**Note:** This command can take a long time to run.
 
-**Indicators:**
-- Fast EMA: 8 periods
-- Medium EMA: 13 periods
-- Slow EMA: 21 periods
+**4. View All Commands**
+To see the full list of available commands and options:
+```bash
+poetry run python scripts/run_crew.py --help
+```
 
-**Signals:**
-- **BUY:** Fast crosses above Medium AND Medium > Slow
-- **SELL:** Fast crosses below Medium AND Medium < Slow
-- **HOLD:** All other conditions
-
-**Confirmation Layers:**
-1. Volume: Current volume > 1.5x average
-2. Volatility: ATR within 0.3-2.0 range
-3. Trend: ADX > 25
-
-**Signal validated only if 2+ confirmations pass**
+### Running the Bot in Autonomous Mode
+For 24/7 operation, the bot can be launched in autonomous mode. It will continuously scan the market, execute trades, and manage its state according to the global market calendar.
+```bash
+poetry run python scripts/run_crew.py autonomous
+```
 
 ---
 
@@ -157,33 +205,30 @@ poetry run python main.py
 
 ```bash
 # All tests
-poetry run pytest tests/ -v
-
-# Unit tests only
-poetry run pytest tests/test_tools/ tests/test_connectors/ -v
-
-# Integration tests
-poetry run pytest tests/test_integration/ -v
-
-# With coverage
-poetry run pytest tests/ --cov=src --cov-report=html
+python -m unittest discover tests
 ```
 
 ### Backtesting
 
-```python
-from src.backtest.backtester import BacktestEngine
+To backtest a single strategy over a specified time period:
+```bash
+poetry run python scripts/run_crew.py backtest --symbol SPY --strategy 3ma --start 2024-01-01 --end 2024-06-30
+```
+```json
+{
+  "trades": 0,
+  "pnl": 0,
+  "win_rate": 0,
+  "sharpe_ratio": 0,
+  "sortino_ratio": 0,
+  "calmar_ratio": 0,
+  "max_drawdown": 0
+}
+```
 
-engine = BacktestEngine(initial_capital=100000)
-results = engine.run_backtest(
-    symbol="SPY",
-    start_date="2024-10-01",
-    end_date="2024-10-28",
-    timeframe="1Min"
-)
-
-print(f"Win Rate: {results['metrics']['win_rate']}%")
-print(f"Profit Factor: {results['metrics']['profit_factor']}")
+To compare the backtested performance of several strategies on the same asset:
+```bash
+poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi_breakout,macd
 ```
 
 ---
@@ -214,7 +259,6 @@ print(f"Profit Factor: {results['metrics']['profit_factor']}")
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Agent Design](docs/AGENT_DESIGN.md) - Strategy and architecture details
 - [Testing Guide](docs/TESTING_GUIDE.md) - Comprehensive testing procedures
-- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment checklist
 
 ---
 
@@ -230,8 +274,6 @@ trading-crew/
 │   ├── tools/           # Market data, analysis, execution tools
 │   ├── agents/          # CrewAI agent definitions
 │   ├── crew/            # Task and crew orchestration
-│   ├── backtest/        # Backtesting framework
-│   ├── optimization/    # Parameter optimization
 │   └── utils/           # Utilities (logging, retry, monitoring)
 ├── tests/               # Test suite
 ├── scripts/             # CLI and utility scripts

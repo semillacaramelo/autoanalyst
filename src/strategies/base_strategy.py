@@ -21,6 +21,6 @@ class TradingStrategy(ABC):
         pass
 
     @abstractmethod
-    def validate_signal(self, df: pd.DataFrame, signal: Dict) -> Dict:
-        """Apply confirmation layers"""
+    def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
+        """Apply confirmation layers and adapt to data feed quality."""
         pass

@@ -2,13 +2,14 @@
 Trading Crew Orchestration
 Main crew that executes the complete trading workflow.
 """
-import os
 from crewai import Crew, Process
 from crewai.llm import LLM
+
 from src.agents.base_agents import TradingAgents
-from src.crew.tasks import TradingTasks
-from src.crew.crew_context import crew_context
 from src.config.settings import settings
+from src.connectors.gemini_connector import gemini_manager
+from src.crew.crew_context import crew_context
+from src.crew.tasks import TradingTasks
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,8 @@ class TradingCrew:
     """
     
     def __init__(self):
-        os.environ["GEMINI_API_KEY"] = settings.get_gemini_keys_list()[0]
-        llm = LLM(model=f"gemini/{settings.primary_llm_models[0]}")
+        llm_client = gemini_manager.get_client()
+        llm = LLM(llm=llm_client, model=f"gemini/{settings.primary_llm_models[0]}")
 
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
@@ -78,7 +79,10 @@ class TradingCrew:
             "symbol": symbol,
             "strategy_name": strategy,
             "timeframe": timeframe,
-            "limit": limit
+            "limit": limit,
+            "max_positions": settings.max_open_positions,
+            "max_risk": settings.max_risk_per_trade,
+            "daily_loss": settings.daily_loss_limit,
         }
         
         try:

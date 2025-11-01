@@ -18,46 +18,50 @@ python -m unittest discover tests
 - **Mocking:** External services (Alpaca, Gemini) should be mocked to ensure tests are fast and repeatable.
 - **Coverage:** Aim for high test coverage on critical logic in the `strategies`, `tools`, and `utils` modules.
 
+### Connector Testing
+Connectors in `src/connectors` are critical for interacting with external services. When writing tests for connectors, ensure the following:
+- **Mock External Libraries:** The actual client libraries (e.g., `alpaca-trade-api`, `langchain-google-genai`) should be mocked at the module level.
+- **Simulate API Failures:** Tests should simulate various API failure modes, such as authentication errors, rate limit errors, and transient server errors.
+- **Verify Resilience:** For connectors that implement resilience logic (e.g., retries, failover), tests must verify that this logic behaves as expected. The test suite for the `GeminiConnectionManager` in `tests/test_connectors/test_gemini_connector.py` is a good example of this.
+
 ## 2. End-to-End & Integration Testing (CLI)
 
-The primary interface for testing and running the system is the Command-Line Interface (CLI) in `scripts/run_crew.py`.
+The primary interface for testing and running the system is the Command-Line Interface (CLI) located at `scripts/run_crew.py`. All operational tasks are managed through this interface.
 
 ### Running a Single Trading Crew
-To run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
+To bypass the scanner and run a single, end-to-end execution of the trading crew for a specific symbol and strategy:
 ```bash
 poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
 ```
 
-### Running the Market Scanner
-To run the market scanner and see the top recommended assets:
+### Running the Market Scanner Only
+To run the market scanner to see the top recommended assets without executing any trades:
 ```bash
 poetry run python scripts/run_crew.py scan
 ```
 
-### Running the Orchestrator with Scanner Input
-To run the full, orchestrated cycle (scan followed by parallel trading crews):
-```bash
-poetry run python scripts/run_crew.py run --scan
-```
-
 ### Checking System Status
-To check the status of API connections and, optionally, get detailed health info and AI recommendations:
+To check the status of API connections and system health.
 ```bash
-# Basic status
+# Basic status check
 poetry run python scripts/run_crew.py status
 
-# Detailed status with API key health
+# Detailed status including API key health and rate limits
 poetry run python scripts/run_crew.py status --detailed
-
-# Detailed status with AI recommendations
-poetry run python scripts/run_crew.py status --detailed --recommendations
 ```
+
+### Launching the Interactive Dashboard
+To launch a real-time, terminal-based dashboard for live system monitoring:
+```bash
+poetry run python scripts/run_crew.py interactive
+```
+**Note:** This command is intended for real-time monitoring and will not produce a static output file.
 
 ## 3. Backtesting
 
 **Objective:** To evaluate the historical performance of trading strategies.
 
-**Implementation:** The backtesting engine is located in `src/utils/backtester.py`.
+**Implementation:** The event-driven backtesting engine is located in `src/utils/backtester_v2.py`.
 
 ### Running a Single Backtest
 To backtest a single strategy over a specified time period:
@@ -75,6 +79,10 @@ poetry run python scripts/run_crew.py compare --symbol NVDA --strategies 3ma,rsi
 - Total number of trades
 - Net Profit/Loss (P&L)
 - Win Rate (%)
+- Sharpe Ratio
+- Sortino Ratio
+- Calmar Ratio
+- Maximum Drawdown
 
 ## 4. Autonomous Operation
 

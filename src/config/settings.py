@@ -1,7 +1,7 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, validator
-from typing import List
+from typing import List, Literal
 import os
 
 
@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     alpaca_base_url: str = Field(
         default="https://paper-api.alpaca.markets",
         description="Alpaca API base URL"
+    )
+    alpaca_data_feed: Literal['iex', 'sip'] = Field(
+        default='iex',
+        description="Alpaca data feed type ('iex' for free, 'sip' for paid)"
     )
     
     # Trading Parameters
