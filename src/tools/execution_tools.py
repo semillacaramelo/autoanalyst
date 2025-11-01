@@ -103,7 +103,7 @@ class ExecutionTools:
 
             if last_equity is None or last_equity == "":
                 # Cannot calculate today's P&L reliably; default to 0 and allow trading
-                logger.warning("last_equity missing or zero; skipping daily loss limit check.")
+                logger.warning("last_equity missing or empty; skipping daily loss limit check.")
                 daily_loss_pct = 0.0
             else:
                 try:
