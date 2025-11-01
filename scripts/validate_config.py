@@ -61,94 +61,94 @@ def validate_alpaca_connection():
 
 
 def validate_strategy_params():
-	"""Validate trading strategy parameters."""
-	console.print("\n[cyan]Validating strategy parameters...[/cyan]")
+    """Validate trading strategy parameters."""
+    console.print("\n[cyan]Validating strategy parameters...[/cyan]")
     
-	table = Table(show_header=True, header_style="bold magenta")
-	table.add_column("Parameter", style="cyan")
-	table.add_column("Value", style="green")
-	table.add_column("Status", justify="center")
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_column("Status", justify="center")
     
-	table.add_row("Trading Symbol", settings.trading_symbol, "✓")
-	table.add_row("Fast MA Period", str(settings.ma_fast_period), "✓")
-	table.add_row("Medium MA Period", str(settings.ma_medium_period), "✓")
-	table.add_row("Slow MA Period", str(settings.ma_slow_period), "✓")
-	table.add_row("Volume Threshold", str(settings.volume_threshold), "✓")
-	table.add_row("ADX Threshold", str(settings.adx_threshold), "✓")
+    table.add_row("Trading Symbol", settings.trading_symbol, "✓")
+    table.add_row("Fast MA Period", str(settings.ma_fast_period), "✓")
+    table.add_row("Medium MA Period", str(settings.ma_medium_period), "✓")
+    table.add_row("Slow MA Period", str(settings.ma_slow_period), "✓")
+    table.add_row("Volume Threshold", str(settings.volume_threshold), "✓")
+    table.add_row("ADX Threshold", str(settings.adx_threshold), "✓")
     
-	console.print(table)
-	return True
+    console.print(table)
+    return True
 
 
 def validate_risk_management():
-	"""Validate risk management parameters."""
-	console.print("\n[cyan]Validating risk management...[/cyan]")
+    """Validate risk management parameters."""
+    console.print("\n[cyan]Validating risk management...[/cyan]")
     
-	table = Table(show_header=True, header_style="bold magenta")
-	table.add_column("Parameter", style="cyan")
-	table.add_column("Value", style="green")
-	table.add_column("Status", justify="center")
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_column("Status", justify="center")
     
-	table.add_row(
-		"Max Risk per Trade",
-		f"{settings.max_risk_per_trade * 100}%",
-		"✓"
-	)
-	table.add_row(
-		"Max Open Positions",
-		str(settings.max_open_positions),
-		"✓"
-	)
-	table.add_row(
-		"Daily Loss Limit",
-		f"{settings.daily_loss_limit * 100}%",
-		"✓"
-	)
+    table.add_row(
+        "Max Risk per Trade",
+        f"{settings.max_risk_per_trade * 100}%",
+        "✓"
+    )
+    table.add_row(
+        "Max Open Positions",
+        str(settings.max_open_positions),
+        "✓"
+    )
+    table.add_row(
+        "Daily Loss Limit",
+        f"{settings.daily_loss_limit * 100}%",
+        "✓"
+    )
     
-	console.print(table)
-	return True
+    console.print(table)
+    return True
 
 
 def main():
-	"""Run all validation checks."""
-	console.print(Panel.fit(
-		"[bold yellow]Trading Crew Configuration Validator[/bold yellow]",
-		border_style="yellow"
-	))
+    """Run all validation checks."""
+    console.print(Panel.fit(
+        "[bold yellow]Trading Crew Configuration Validator[/bold yellow]",
+        border_style="yellow"
+    ))
     
-	checks = [
-		("Gemini API Keys", validate_gemini_keys),
-		("Alpaca Connection", validate_alpaca_connection),
-		("Strategy Parameters", validate_strategy_params),
-		("Risk Management", validate_risk_management),
-	]
+    checks = [
+        ("Gemini API Keys", validate_gemini_keys),
+        ("Alpaca Connection", validate_alpaca_connection),
+        ("Strategy Parameters", validate_strategy_params),
+        ("Risk Management", validate_risk_management),
+    ]
     
-	results = []
-	for check_name, check_func in checks:
-		try:
-			result = check_func()
-			results.append((check_name, result))
-		except Exception as e:
-			console.print(f"\n[red]✗ {check_name} failed: {e}[/red]")
-			results.append((check_name, False))
+    results = []
+    for check_name, check_func in checks:
+        try:
+            result = check_func()
+            results.append((check_name, result))
+        except Exception as e:
+            console.print(f"\n[red]✗ {check_name} failed: {e}[/red]")
+            results.append((check_name, False))
     
-	# Summary
-	console.print("\n" + "="*50)
-	passed = sum(1 for _, result in results if result)
-	total = len(results)
+    # Summary
+    console.print("\n" + "="*50)
+    passed = sum(1 for _, result in results if result)
+    total = len(results)
     
-	if passed == total:
-		console.print(Panel.fit(
-			f"[bold green]All {total} checks passed! ✓[/bold green]",
-			border_style="green"
-		))
-		sys.exit(0)
-	else:
-		console.print(Panel.fit(
-			f"[bold red]{passed}/{total} checks passed. Fix errors before running.[/bold red]",
-			border_style="red"
-		))
-		sys.exit(1)
+    if passed == total:
+        console.print(Panel.fit(
+            f"[bold green]All {total} checks passed! ✓[/bold green]",
+            border_style="green"
+        ))
+        sys.exit(0)
+    else:
+        console.print(Panel.fit(
+            f"[bold red]{passed}/{total} checks passed. Fix errors before running.[/bold red]",
+            border_style="red"
+        ))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

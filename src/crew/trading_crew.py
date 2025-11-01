@@ -20,7 +20,17 @@ class TradingCrew:
     Manages the complete workflow from data collection to trade execution.
     """
     
-    def __init__(self):
+    def __init__(self, skip_init: bool = False):
+        """
+        Initialize the trading crew.
+        
+        Args:
+            skip_init: If True, skip initialization (for help/validation commands)
+        """
+        if skip_init:
+            self.crew = None
+            return
+            
         llm_client = gemini_manager.get_client()
         llm = LLM(llm=llm_client, model=f"gemini/{settings.primary_llm_models[0]}")
 
@@ -66,6 +76,9 @@ class TradingCrew:
         """
         Execute the complete trading workflow.
         """
+        if self.crew is None:
+            raise RuntimeError("TradingCrew was initialized with skip_init=True. Cannot run.")
+            
         if symbol is None:
             symbol = settings.trading_symbol
         
@@ -108,5 +121,26 @@ class TradingCrew:
                 "strategy": strategy
             }
 
-# Global instance
-trading_crew = TradingCrew()
+# Global instance factory function for lazy initialization
+_trading_crew_instance = None
+
+def get_trading_crew() -> TradingCrew:
+    """
+    Get or create the global trading crew instance.
+    Lazy initialization to avoid API calls during module import.
+    """
+    global _trading_crew_instance
+    if _trading_crew_instance is None:
+        _trading_crew_instance = TradingCrew()
+    return _trading_crew_instance
+
+# For backwards compatibility, provide a property-like accessor
+class _TradingCrewProxy:
+    """Proxy that lazily initializes the trading crew on first access."""
+    def __getattr__(self, name):
+        return getattr(get_trading_crew(), name)
+    
+    def run(self, *args, **kwargs):
+        return get_trading_crew().run(*args, **kwargs)
+
+trading_crew = _TradingCrewProxy()

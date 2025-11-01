@@ -26,7 +26,20 @@ class TopAssetsResponse(BaseModel):
 
 class MarketScannerCrew:
 
-    def __init__(self):
+    def __init__(self, skip_init: bool = False):
+        """
+        Initialize the market scanner crew.
+        
+        Args:
+            skip_init: If True, skip initialization (for help/validation commands)
+        """
+        if skip_init:
+            self.volatility_analyzer = None
+            self.technical_analyzer = None
+            self.liquidity_filter = None
+            self.chief_analyst = None
+            return
+            
         llm_client = gemini_manager.get_client()
         llm = LLM(llm=llm_client, model="gemini/gemini-2.5-flash")
         agents_factory = ScannerAgents()
@@ -38,6 +51,10 @@ class MarketScannerCrew:
         self.chief_analyst = agents_factory.market_intelligence_chief(llm)
 
     def run(self):
+        """Run the market scanner crew to identify trading opportunities."""
+        if self.volatility_analyzer is None:
+            raise RuntimeError("MarketScannerCrew was initialized with skip_init=True. Cannot run.")
+            
         # Define Tasks
         fetch_and_analyze_volatility = Task(
             description="Fetch the S&P 100 symbols, get their daily data for the last 100 days, and analyze their volatility.",
@@ -78,4 +95,26 @@ class MarketScannerCrew:
         result = scanner_crew.kickoff()
         return result
 
-market_scanner_crew = MarketScannerCrew()
+# Global instance factory function for lazy initialization
+_market_scanner_crew_instance = None
+
+def get_market_scanner_crew() -> MarketScannerCrew:
+    """
+    Get or create the global market scanner crew instance.
+    Lazy initialization to avoid API calls during module import.
+    """
+    global _market_scanner_crew_instance
+    if _market_scanner_crew_instance is None:
+        _market_scanner_crew_instance = MarketScannerCrew()
+    return _market_scanner_crew_instance
+
+# For backwards compatibility, provide a property-like accessor
+class _MarketScannerCrewProxy:
+    """Proxy that lazily initializes the market scanner crew on first access."""
+    def __getattr__(self, name):
+        return getattr(get_market_scanner_crew(), name)
+    
+    def run(self, *args, **kwargs):
+        return get_market_scanner_crew().run(*args, **kwargs)
+
+market_scanner_crew = _MarketScannerCrewProxy()

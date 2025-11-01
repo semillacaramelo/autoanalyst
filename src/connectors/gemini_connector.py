@@ -126,10 +126,14 @@ class GeminiConnectionManager:
         self.rate_limiter = RateLimiter(rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd)
         self.request_count = 0
 
-    def get_client(self):
+    def get_client(self, skip_health_check: bool = False):
         """
         Return a LangChain ChatGoogleGenerativeAI instance with failover and key rotation.
-        This method includes a health check by making a real API call.
+        
+        Args:
+            skip_health_check: If True, skip the API health check (useful for testing/help commands)
+        
+        This method includes a health check by making a real API call unless skip_health_check is True.
         """
         if ChatGoogleGenerativeAI is None:
             raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
@@ -158,8 +162,10 @@ class GeminiConnectionManager:
                             temperature=self.temperature,
                             verbose=(settings.log_level == "DEBUG")
                         )
-                        # Health check: Make a real, lightweight API call
-                        client.invoke("hello")
+                        
+                        # Health check: Make a real, lightweight API call (unless skipped)
+                        if not skip_health_check:
+                            client.invoke("hello")
 
                         self.key_health_tracker.record_success(api_key)
                         self.request_count += 1
