@@ -69,8 +69,6 @@ class TestGeminiConnector(unittest.TestCase):
         mock_settings.key_health_threshold = 0.5
         mock_settings.rate_limit_rpm = 60
         mock_settings.rate_limit_rpd = 1500
-        mock_settings.rate_limit_rpm = 60
-        mock_settings.rate_limit_rpd = 1500
         mock_client_instance = MagicMock()
         mock_client_instance.invoke.return_value = "hello"
         mock_chat_google.return_value = mock_client_instance

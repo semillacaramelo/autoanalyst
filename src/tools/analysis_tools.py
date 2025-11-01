@@ -308,22 +308,22 @@ class TechnicalAnalysisTools:
             prev_macd_high_val = histogram.loc[macd_highs_idx[-2]]
 
             if last_price_high_val > prev_price_high_val and last_macd_high_val < prev_macd_high_val:
-                 divergence = {
+                divergence = {
                     "type": "bearish",
                     "description": "Higher high in price, lower high in MACD histogram."
                 }
-                 is_bearish = True
+                is_bearish = True
 
         if is_bullish and is_bearish:
             # Prioritize the most recent signal
             last_bullish_event = max(price_lows_idx[-1], macd_lows_idx[-1])
             last_bearish_event = max(price_highs_idx[-1], macd_highs_idx[-1])
             if last_bullish_event > last_bearish_event:
-                 divergence['type'] = 'bullish'
-                 divergence['description'] = "Lower low in price, higher low in MACD histogram."
+                divergence['type'] = 'bullish'
+                divergence['description'] = "Lower low in price, higher low in MACD histogram."
             else:
-                 divergence['type'] = 'bearish'
-                 divergence['description'] = "Higher high in price, lower high in MACD histogram."
+                divergence['type'] = 'bearish'
+                divergence['description'] = "Higher high in price, lower high in MACD histogram."
 
         return divergence
 
