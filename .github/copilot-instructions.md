@@ -392,14 +392,28 @@ When working on this project:
 6. Use interactive dashboard for live monitoring
 7. Keep API keys secure and never commit them
 
+**User Preferences & Project Approach:**
+- **Feature-based development**: Follow `FEATURE_ROADMAP.md` phases, not time-based schedules
+- **Documentation management**: Delete redundant files permanently (don't archive unless explicitly requested)
+- **Single source of truth**: Avoid creating duplicate documentation; consolidate information
+- **AI-driven development**: Development velocity depends on feature complexity, not calendar deadlines
+- **Trust the roadmap**: `FEATURE_ROADMAP.md` is the authoritative source for development priorities
+
 ## Development Status
 
-- **Phase 1**: ✅ COMPLETE (Critical system fixes)
-- **Phase 2**: 🔄 IN PROGRESS (Multi-market 24/7 trading)
+- **Phase 1**: ✅ COMPLETE (Critical system fixes) - November 2, 2025
+- **Documentation Cleanup**: ✅ COMPLETE - Removed 11 redundant files (4,094 lines)
+- **Phase 2**: 🔄 READY TO START (Multi-market 24/7 trading) - No blockers
 - **Phase 3**: 📋 PLANNED (Comprehensive testing & validation)
 - **Phase 4**: 📋 PLANNED (Production hardening)
 
 **Development Approach**: Feature-based implementation (AI-driven, not calendar-based)
+
+**Recent Milestones:**
+- November 2, 2025: Phase 1 completion, documentation restructure & cleanup
+- Feature roadmap converted from time-based (weeks/days) to feature-based (phases)
+- Consolidated 22 markdown files → 12 essential files (single source of truth)
+- Repository ready for Phase 2 development with clean documentation structure
 
 ---
 
