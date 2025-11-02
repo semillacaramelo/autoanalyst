@@ -6,14 +6,15 @@ Handles both Trading and Market Data clients with safety checks
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional
 import logging
 from src.config.settings import settings
+from src.utils.asset_classifier import AssetClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class AlpacaConnectionManager:
 
         self._trading_client = None
         self._data_client = None
+        self._crypto_client = None
 
         logger.info(
             f"AlpacaManager initialized (mode: {'PAPER' if self.is_paper else 'LIVE'})"
@@ -64,6 +66,16 @@ class AlpacaConnectionManager:
             )
             logger.debug("Data client initialized")
         return self._data_client
+
+    @property
+    def crypto_client(self) -> CryptoHistoricalDataClient:
+        """Lazy-loaded crypto data client."""
+        if not self._crypto_client:
+            self._crypto_client = CryptoHistoricalDataClient(
+                api_key=self.api_key, secret_key=self.secret_key
+            )
+            logger.debug("Crypto client initialized")
+        return self._crypto_client
 
     def get_account(self) -> dict:
         """
@@ -94,19 +106,57 @@ class AlpacaConnectionManager:
         start: Optional[str] = None,
         end: Optional[str] = None,
         limit: int = 100,
+        asset_class: Optional[str] = None,
     ) -> pd.DataFrame:
         """
-        Fetch historical OHLCV data.
+        Fetch historical OHLCV data with automatic asset class detection.
 
         Args:
-            symbol: Stock symbol (e.g., "SPY")
+            symbol: Symbol to fetch (e.g., "SPY", "BTC/USD", "EUR/USD")
             timeframe: Bar timeframe ("1Min", "5Min", "1Hour", etc.)
             start: Start date string (YYYY-MM-DD)
             end: End date string (YYYY-MM-DD)
             limit: Number of bars to fetch if start/end are not provided
+            asset_class: Optional asset class override ("US_EQUITY", "CRYPTO", "FOREX").
+                        If None, auto-detects from symbol.
 
         Returns:
-            DataFrame with columns: open, high, low, close, volume
+            DataFrame with columns: open, high, low, close, volume (and others)
+        """
+        # Auto-detect asset class if not provided
+        if asset_class is None:
+            try:
+                classification = AssetClassifier.classify(symbol)
+                asset_class = classification["type"]
+                logger.debug(f"Auto-detected {symbol} as {asset_class}")
+            except ValueError as e:
+                logger.error(f"Failed to classify symbol {symbol}: {e}")
+                raise
+
+        # Route to appropriate client based on asset class
+        if asset_class == "CRYPTO":
+            return self._fetch_crypto_bars(symbol, timeframe, start, end, limit)
+        elif asset_class == "FOREX":
+            # Forex not yet implemented, but placeholder for future
+            raise NotImplementedError(
+                "Forex data fetching not yet implemented. "
+                "Alpaca forex support is in beta."
+            )
+        else:  # US_EQUITY
+            return self._fetch_stock_bars(symbol, timeframe, start, end, limit)
+
+    def _fetch_stock_bars(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: Optional[str],
+        end: Optional[str],
+        limit: int,
+    ) -> pd.DataFrame:
+        """
+        Fetch stock (equity) historical bars.
+        
+        (Original implementation from fetch_historical_bars)
         """
         try:
             # Improved timeframe parsing
@@ -177,7 +227,104 @@ class AlpacaConnectionManager:
             return df
 
         except Exception as e:
-            logger.error(f"Failed to fetch bars: {e}")
+            logger.error(f"Failed to fetch stock bars: {e}")
+            raise
+
+    def _fetch_crypto_bars(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: Optional[str],
+        end: Optional[str],
+        limit: int,
+    ) -> pd.DataFrame:
+        """
+        Fetch cryptocurrency historical bars.
+        
+        Uses CryptoHistoricalDataClient with crypto-specific requests.
+        Crypto data is available 24/7 with no market hours restrictions.
+        
+        Note: Alpaca crypto API requires symbols with slash (BTC/USD, not BTCUSD)
+        """
+        try:
+            # Normalize crypto symbol to slash format (Alpaca requirement)
+            if "/" not in symbol:
+                # BTCUSD → BTC/USD, ETHUSD → ETH/USD, BTCUSDT → BTC/USDT
+                if symbol.endswith("USDT"):
+                    base = symbol[:-4]  # Remove USDT
+                    symbol = f"{base}/USDT"
+                elif symbol.endswith("USD"):
+                    base = symbol[:-3]  # Remove USD
+                    symbol = f"{base}/USD"
+                else:
+                    raise ValueError(f"Cannot normalize crypto symbol: {symbol}")
+                logger.debug(f"Normalized crypto symbol to: {symbol}")
+            
+            # Parse timeframe (same logic as stocks)
+            import re
+
+            timeframe_lower = timeframe.lower()
+            match = re.match(r"(\d+)\s*(m|min|h|hour|d|day)", timeframe_lower)
+            if not match:
+                raise ValueError(f"Invalid timeframe format: {timeframe}")
+
+            amount = int(match.group(1))
+            unit_str = match.group(2)
+
+            if "m" in unit_str:
+                tf_unit = TimeFrameUnit.Minute
+            elif "h" in unit_str:
+                tf_unit = TimeFrameUnit.Hour
+            elif "d" in unit_str:
+                tf_unit = TimeFrameUnit.Day
+            else:
+                raise ValueError(f"Unrecognized timeframe unit in: {timeframe}")
+
+            tf = TimeFrame(amount, tf_unit)
+
+            # Calculate start/end times (crypto is 24/7, use UTC)
+            if start and end:
+                start_dt = pd.to_datetime(start)
+                if start_dt.tzinfo is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                    start_dt = start_dt.tz_localize("UTC")
+                else:
+                    start_dt = start_dt.tz_convert("UTC")
+                end_dt = pd.to_datetime(end)
+                if end_dt.tzinfo is None or end_dt.tzinfo.utcoffset(end_dt) is None:
+                    end_dt = end_dt.tz_localize("UTC")
+                else:
+                    end_dt = end_dt.tz_convert("UTC")
+            else:
+                end_dt = datetime.now()
+                if tf_unit == TimeFrameUnit.Day:
+                    start_dt = end_dt - timedelta(days=limit * amount)
+                elif tf_unit == TimeFrameUnit.Hour:
+                    start_dt = end_dt - timedelta(hours=limit * amount)
+                else:  # Minute
+                    start_dt = end_dt - timedelta(minutes=limit * amount)
+
+            # Use CryptoBarsRequest (different from StockBarsRequest)
+            request_params = CryptoBarsRequest(
+                symbol_or_symbols=[symbol],
+                timeframe=tf,
+                start=start_dt,
+                end=end_dt,
+            )
+
+            bars = self.crypto_client.get_crypto_bars(request_params)
+            df = bars.df
+
+            # Flatten multi-index if present
+            if isinstance(df.index, pd.MultiIndex):
+                df = df.reset_index(level=0, drop=True)
+
+            logger.info(
+                f"Fetched {len(df)} crypto bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}"
+            )
+            return df
+
+        except Exception as e:
+            logger.error(f"Failed to fetch crypto bars: {e}")
             raise
 
     def place_market_order(
