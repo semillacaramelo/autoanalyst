@@ -488,6 +488,12 @@ trading-crew/
 - Check logs for signal generation details
 - Try different symbol, timeframe, or market (equity vs crypto)
 
+**"24/7 trading not working"**
+- Ensure `AUTONOMOUS_MODE_ENABLED=true` in `.env`
+- Verify `target_markets=['US_EQUITY', 'CRYPTO']` in settings
+- Check crypto is enabled with Alpaca (FREE with IEX feed)
+- System will auto-rotate: US equity (market hours) → Crypto (24/7)
+
 ---
 
 ## 📖 API Free Tier Limits
