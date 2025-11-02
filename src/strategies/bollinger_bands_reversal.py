@@ -1,6 +1,6 @@
 from src.strategies.base_strategy import TradingStrategy
 import pandas as pd
-from typing import Dict
+from typing import Dict, Optional
 from src.tools.analysis_tools import TechnicalAnalysisTools
 import logging
 
@@ -10,10 +10,21 @@ class BollingerBandsReversalStrategy(TradingStrategy):
     name = "bollinger"
     description = "Bollinger Bands Mean Reversal Strategy"
     min_bars_required = 21  # For Bollinger Bands calculation
+    
+    def __init__(self, asset_class: Optional[str] = None):
+        """
+        Initialize Bollinger Bands strategy with asset-class-specific parameters.
+        
+        Args:
+            asset_class: Asset class ('US_EQUITY', 'CRYPTO', 'FOREX', or None)
+        """
+        super().__init__(asset_class)
 
     def calculate_indicators(self, df: pd.DataFrame) -> Dict[str, pd.Series]:
         """Calculate all required indicators for Bollinger Bands Reversal."""
         upper_band, middle_band, lower_band = TechnicalAnalysisTools.calculate_bollinger_bands(df)
+        atr_period = self.params['atr_period']
+        
         return {
             "upper_band": upper_band,
             "middle_band": middle_band,
@@ -21,6 +32,7 @@ class BollingerBandsReversalStrategy(TradingStrategy):
             "rsi": TechnicalAnalysisTools.calculate_rsi(df, 14),
             "volume": df['volume'],
             "bb_width": TechnicalAnalysisTools.calculate_bollinger_band_width(df),
+            "atr": TechnicalAnalysisTools.calculate_atr(df, atr_period),
         }
 
     def generate_signal(self, df: pd.DataFrame) -> Dict:
@@ -59,7 +71,7 @@ class BollingerBandsReversalStrategy(TradingStrategy):
         }
 
     def validate_signal(self, df: pd.DataFrame, signal: Dict, _data_feed: str) -> Dict:
-        """Apply volatility and advanced candlestick pattern confirmation."""
+        """Apply volatility and advanced candlestick pattern confirmation with asset-class awareness."""
         # Note: This strategy is not volume-dependent, so the _data_feed parameter is unused
         # but required by the interface contract.
         if signal["signal"] == "HOLD":
@@ -77,18 +89,30 @@ class BollingerBandsReversalStrategy(TradingStrategy):
                           (pattern_info["type"] == "bearish" and signal["signal"] == "SELL")
 
         confirmations = []
+        confidence_boost = 0.0
+        
         if volatility_confirm:
             confirmations.append("Volatility Expansion")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.1)
+            confidence_boost += 0.1
+            
         if pattern_confirm:
             confirmations.append(f"Candlestick Pattern ({pattern_info['pattern']})")
-            signal["confidence"] = min(1.0, signal["confidence"] + 0.2)
+            confidence_boost += 0.2
             signal["details"]["candlestick_pattern"] = pattern_info['pattern']
 
+        # Apply minimum confidence threshold
+        min_confidence = self.params['min_confidence']
         if confirmations:
-            signal["validation"] = f"{' and '.join(confirmations)} confirmed"
+            signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
+            signal["validation"] = f"{' and '.join(confirmations)} confirmed ({self.asset_class})"
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
-            signal["validation"] = "No confirmation"
+            signal["validation"] = f"No confirmation ({self.asset_class})"
+        
+        # Apply minimum confidence filter
+        if signal["confidence"] < min_confidence:
+            logger.info(f"Signal confidence {signal['confidence']:.2f} below minimum {min_confidence} for {self.asset_class}")
+            signal["signal"] = "HOLD"
+            signal["validation"] += f" (Below min confidence for {self.asset_class})"
 
         return signal

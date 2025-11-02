@@ -1,6 +1,6 @@
 from src.strategies.base_strategy import TradingStrategy
 import pandas as pd
-from typing import Dict
+from typing import Dict, Optional
 from src.tools.analysis_tools import TechnicalAnalysisTools
 import logging
 
@@ -10,16 +10,28 @@ class MACDCrossoverStrategy(TradingStrategy):
     name = "macd"
     description = "MACD Crossover Strategy"
     min_bars_required = 34  # For the slow EMA in MACD
+    
+    def __init__(self, asset_class: Optional[str] = None):
+        """
+        Initialize MACD strategy with asset-class-specific parameters.
+        
+        Args:
+            asset_class: Asset class ('US_EQUITY', 'CRYPTO', 'FOREX', or None)
+        """
+        super().__init__(asset_class)
 
     def calculate_indicators(self, df: pd.DataFrame) -> Dict[str, pd.Series]:
         """Calculate all required indicators for MACD Crossover."""
         macd_line, signal_line, histogram = TechnicalAnalysisTools.calculate_macd(df)
+        atr_period = self.params['atr_period']
+        
         return {
             "macd_line": macd_line,
             "signal_line": signal_line,
             "histogram": histogram,
             "volume": df['volume'],
             "rsi": TechnicalAnalysisTools.calculate_rsi(df, 14),
+            "atr": TechnicalAnalysisTools.calculate_atr(df, atr_period),
         }
 
     def generate_signal(self, df: pd.DataFrame) -> Dict:
@@ -64,7 +76,7 @@ class MACDCrossoverStrategy(TradingStrategy):
         }
 
     def validate_signal(self, df: pd.DataFrame, signal: Dict, data_feed: str) -> Dict:
-        """Apply volume, RSI, and MACD divergence confirmation."""
+        """Apply volume, RSI, and MACD divergence confirmation with asset-class awareness."""
         if signal["signal"] == "HOLD":
             return signal
 
@@ -84,13 +96,18 @@ class MACDCrossoverStrategy(TradingStrategy):
         confirmations = []
         confidence_boost = 0.0
 
-        if volume_confirm["confirmed"]:
+        # Asset-class-aware volume confirmation
+        volume_weight = self.params['volume_weight']
+        if volume_confirm["confirmed"] and volume_weight > 0:
             if data_feed == 'sip':
-                confidence_boost += 0.15
-                confirmations.append("Volume (SIP)")
-            else:
-                confidence_boost += 0.05
-                confirmations.append("Volume (IEX - Low Weight)")
+                confidence_boost += volume_weight
+                confirmations.append(f"Volume (SIP, {self.asset_class})")
+            elif data_feed == 'iex' and self.asset_class != 'CRYPTO':
+                confidence_boost += volume_weight * 0.33
+                confirmations.append(f"Volume (IEX, {self.asset_class})")
+            elif self.asset_class == 'CRYPTO':
+                confidence_boost += volume_weight
+                confirmations.append(f"Volume ({self.asset_class})")
 
         if rsi_confirm:
             confidence_boost += 0.10
@@ -101,11 +118,19 @@ class MACDCrossoverStrategy(TradingStrategy):
             confirmations.append(f"MACD {divergence['type'].capitalize()} Divergence")
             signal["details"]["divergence_description"] = divergence["description"]
 
+        # Apply minimum confidence threshold
+        min_confidence = self.params['min_confidence']
         if confirmations:
             signal["confidence"] = min(1.0, signal["confidence"] + confidence_boost)
             signal["validation"] = ", ".join(confirmations)
         else:
             signal["confidence"] = max(0.0, signal["confidence"] - 0.3)
-            signal["validation"] = "No confirmation"
+            signal["validation"] = f"No confirmation ({self.asset_class})"
+        
+        # Apply minimum confidence filter
+        if signal["confidence"] < min_confidence:
+            logger.info(f"Signal confidence {signal['confidence']:.2f} below minimum {min_confidence} for {self.asset_class}")
+            signal["signal"] = "HOLD"
+            signal["validation"] += f" (Below min confidence for {self.asset_class})"
 
         return signal
