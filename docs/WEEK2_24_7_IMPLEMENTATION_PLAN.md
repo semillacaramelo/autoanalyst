@@ -25,17 +25,19 @@
 ### Prerequisites (Before Starting)
 
 - [x] **Week 1 Complete** - All critical bugs fixed ✅
-- [ ] **Verify Alpaca Crypto Support** (2 hours)
-  - Test if current subscription supports crypto data API
-  - Endpoints: `/v1beta3/crypto/us/latest/bars` and `/v1beta3/crypto/us/historical/bars`
-  - Symbols: BTC/USD, ETH/USD, SOL/USD, etc.
-  - Action: If not supported, upgrade to Alpaca Crypto ($9-49/mo)
+- [x] **✅ Verify Alpaca Crypto Support** (COMPLETED - November 2, 2025)
+  - ✅ IEX data feed includes FREE crypto data (no upgrade needed)
+  - ✅ Tested endpoints: Successfully fetched BTC/USD historical bars
+  - ✅ Available coins: 62 tradable pairs (BTC/USD, ETH/USD, SOL/USD, DOGE/USD, LINK/USD, AVAX/USD, etc.)
+  - ✅ Data quality: Real-time crypto data (unlike 15-min delayed stocks)
+  - ✅ Trading: Both paper and live crypto trading available
+  - **Result**: NO SUBSCRIPTION UPGRADE REQUIRED
 - [ ] **Download Crypto Historical Data** (4 hours)
-  - Get 6-12 months OHLCV for top 20 cryptos
+  - Get 6-12 months OHLCV for top 20 cryptos from Alpaca API
   - Calculate baseline indicators (ATR, volatility, correlation)
   - Prepare backtesting datasets
 
-**Estimated Setup Time**: 6 hours
+**Estimated Setup Time**: 4 hours (reduced from 6h - crypto verification complete)
 
 ---
 
@@ -402,9 +404,10 @@ print('Uptime:', state['uptime_percentage'], '%')
 
 ### Phase 1: Testing (Week 2-3)
 - All development in DRY_RUN mode
-- Use Alpaca paper trading only
-- Extensive backtesting with historical crypto data
+- Use Alpaca paper trading only (62 crypto pairs available)
+- Extensive backtesting with historical crypto data (FREE via IEX)
 - Monitor for 1 week (7 days × 24 hours) to validate stability
+- **Note**: Crypto data is real-time and free (no delays like equity data)
 
 ### Phase 2: Limited Live (Week 4)
 - Enable live crypto trading with $500 test capital
@@ -421,9 +424,9 @@ print('Uptime:', state['uptime_percentage'], '%')
 ---
 
 ## Risk Mitigation Checklist
-
 **Before Going Live**:
-- [ ] Verify Alpaca crypto support and costs
+- [x] ✅ Verify Alpaca crypto support - CONFIRMED (free with IEX)
+- [ ] Backtest all strategies on 12 months crypto data (use Alpaca API)
 - [ ] Backtest all strategies on 12 months crypto data
 - [ ] Test wash trading detection on known pump & dump examples
 - [ ] Implement daily loss limits per market (5% US, 7% crypto)

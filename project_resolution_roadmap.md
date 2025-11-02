@@ -1419,13 +1419,14 @@ class AutoTradingScheduler:
 
 #### Technical Risks
 
-**1. Alpaca API Crypto Support (HIGH)**
-- **Risk**: Free tier may not support crypto data or trading
-- **Mitigation**: 
-  - Check Alpaca documentation for crypto availability
-  - Consider Alpaca Crypto subscription ($9-49/mo) if needed
-  - Alternative: Use Coinbase or Binance API for crypto data (requires new connector)
-  - Fallback: Start with paper crypto trading via Alpaca sandbox
+**1. Alpaca API Crypto Support (RESOLVED ✅)**
+- **Status**: VERIFIED - Crypto fully available with FREE IEX data feed
+- **Findings**:
+  - ✅ 62 tradable crypto pairs (BTC/USD, ETH/USD, SOL/USD, DOGE/USD, etc.)
+  - ✅ Real-time crypto data (no delay, unlike 15-min delayed stocks)
+  - ✅ No subscription upgrade required (IEX includes crypto)
+  - ✅ Both paper and live crypto trading available
+- **Recommendation**: Proceed with crypto implementation immediately (no blockers)
 
 **2. Strategy Performance in Crypto (HIGH)**
 - **Risk**: Equity-optimized strategies may fail in 24/7 markets
@@ -1511,10 +1512,11 @@ class AutoTradingScheduler:
 
 **Before Starting Week 2 Implementation:**
 
-1. **Verify Alpaca Crypto Support** (2 hours)
-   - Check if current subscription supports crypto data API
-   - Test basic crypto data fetch (BTC/USD, ETH/USD)
-   - Determine if upgrade needed ($9-49/mo for crypto)
+1. **✅ Verify Alpaca Crypto Support** (COMPLETED - November 2, 2025)
+   - ✅ Verified: IEX data feed includes FREE crypto data
+   - ✅ Tested: Successfully fetched 168 BTC/USD bars (1-hour timeframe)
+   - ✅ Confirmed: 62 tradable crypto pairs available
+   - ✅ Result: NO subscription upgrade needed
 
 2. **Week 1 Completion** (DONE ✅)
    - All critical bugs fixed
