@@ -1,0 +1,24 @@
+{
+  "market_performance": {
+    "US_EQUITY": {
+      "trades": 0,
+      "wins": 0,
+      "total_profit": 0.0,
+      "last_update": null
+    },
+    "CRYPTO": {
+      "trades": 0,
+      "wins": 0,
+      "total_profit": 0.0,
+      "last_update": null
+    },
+    "FOREX": {
+      "trades": 0,
+      "wins": 0,
+      "total_profit": 0.0,
+      "last_update": null
+    }
+  },
+  "last_rotation": null,
+  "rotation_count": 0
+}

@@ -2,7 +2,105 @@
 
 All notable changes to the AI-Driven Trading Crew project are documented here.
 
-## [Unreleased] - 2025-11-02
+## [0.2.0] - 2025-11-03
+
+### Added - Phase 2: Multi-Market 24/7 Trading ✅ COMPLETE
+
+**Major milestone:** System now supports autonomous 24/7 trading across multiple markets with intelligent rotation and asset-class-aware strategies.
+
+#### Feature 2.1: Asset Classification System (c613a79)
+- Pattern-based asset class detection (US_EQUITY, CRYPTO, FOREX)
+- Auto-detection from symbol format (AAPL → US_EQUITY, BTC/USD → CRYPTO, EUR/USD → FOREX)
+- 13/13 tests passing
+
+#### Feature 2.2: Multi-Asset Data Layer (cf6a931)
+- Added crypto/forex data fetching via Alpaca API
+- Lazy-loaded CryptoHistoricalDataClient for efficient resource usage
+- Symbol normalization (BTCUSD → BTC/USD)
+- Verified: FREE with IEX data feed (no subscription required)
+
+#### Feature 2.3: Dynamic Universe Management (98d2ae1)
+- Created UniverseManager with static and dynamic symbol sources
+- US_EQUITY: 99 S&P 100 stocks
+- CRYPTO: 15 top crypto pairs (dynamic fetch with fallback)
+- FOREX: 6 major currency pairs
+- Volume and tradability filters
+
+#### Feature 2.4: Market-Aware Scanner (b304510)
+- Scanner accepts target_market parameter for multi-market scanning
+- Auto-detects active markets via MarketCalendar
+- Market-specific agent backstories for context
+- 11/11 tests passing (7 tool tests + 4 crew tests)
+
+#### Feature 2.5: Asset-Class-Aware Strategies (4456e3d)
+- Automatic parameter adaptation per asset class
+- **CRYPTO parameters:** 3.0x ATR stops (wider for volatility), 0.05 volume weight (24/7 trading), 20-period ATR (longer smoothing)
+- **US_EQUITY parameters:** 2.0x ATR stops (standard), 0.15 volume weight (market hours), 14-period ATR (standard)
+- **FOREX parameters:** 2.5x ATR stops (moderate), 0.0 volume weight (not available), 14-period ATR
+- Updated all 4 strategies: triple_ma, rsi_breakout, macd_crossover, bollinger_bands_reversal
+- 5/5 tests passing
+
+#### Feature 2.6: Intelligent Market Rotation (041a072)
+- Time-based selection: US_EQUITY prioritized during market hours (9:30-4:00 ET), CRYPTO when closed
+- Performance-based scoring: `win_rate × avg_profit × log(trade_count + 1)`
+- Override logic: Switches to better market if score >20% higher
+- State persistence with market performance tracking (win rates, profits, opportunity counts)
+- 8/8 tests passing
+
+#### Feature 2.7: Adaptive 24/7 Scheduler (f0a3000)
+- Integrated market rotation into global_scheduler.py
+- **Adaptive scan intervals:**
+  - US_EQUITY: 5 minutes (peak liquidity)
+  - CRYPTO peak hours (9-23 UTC): 15 minutes (high activity)
+  - CRYPTO off-peak (0-8 UTC): 30 minutes (low activity)
+  - FOREX: 10 minutes (moderate activity)
+- Asset-class-aware strategy selection per market
+- Market performance tracking and rotation stats logging
+- Enhanced state management with market context
+- Graceful error handling and recovery
+- 10/10 tests passing
+
+### Metrics
+
+**System Improvements:**
+- **Uptime:** 27% (6.5h/day) → 100% (24h/day) = **3.7x increase**
+- **Markets:** 1 (US equities only) → 3 (equity/crypto/forex) = **3x expansion**
+- **Assets:** 100 (S&P 100) → 120 (99+15+6) = **1.2x coverage**
+- **Scan Intervals:** Fixed 15min → Adaptive 5-30min = **Dynamic optimization**
+
+**Test Coverage:**
+- Total tests: 34/34 passing (100% pass rate)
+- Feature 2.5: 5/5 tests (asset-class adaptation)
+- Feature 2.6: 8/8 tests (market rotation logic)
+- Feature 2.7: 10/10 tests (scheduler intervals & strategy selection)
+
+**Code Changes:**
+- Files modified: 13 (10 source files, 3 test files)
+- Lines added: +1,438
+- Lines removed: -83
+- Net change: +1,355 lines
+
+### Changed
+- Enhanced global scheduler with intelligent market rotation
+- Updated all 4 trading strategies to support asset_class parameter
+- Modified base strategy with asset-specific parameter method
+- Enhanced state manager to track market performance metrics
+
+### Files Added
+- `src/crew/market_rotation_strategy.py` (270 lines) - Market selection logic
+- `tests/test_asset_aware_strategies.py` (225 lines) - Strategy adaptation tests
+- `tests/test_market_rotation_strategy.py` (250 lines) - Rotation logic tests
+- `tests/test_adaptive_scheduler.py` (150 lines) - Scheduler interval tests
+
+### Documentation
+- Updated FEATURE_ROADMAP.md with Phase 2 completion (7/7 features)
+- Updated README.md with 24/7 trading features and troubleshooting
+- Added inline comments to market rotation and scheduler modules
+- Updated .github/copilot-instructions.md with Phase 2 status
+
+---
+
+## [0.1.1] - 2025-11-02
 
 ### Changed - Documentation Restructuring
 - **Restructured all documentation to feature-based approach** - AI-driven development, not time-based
