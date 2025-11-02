@@ -17,7 +17,10 @@ A modular, backend-first trading system powered by CrewAI multi-agent framework,
 ## 📋 Features
 
 - **Multi-Agent System:** 4 specialized AI agents working in sequence
-- **Multi-Strategy Framework:** Supports multiple, dynamically selectable trading strategies.
+- **Multi-Market Support:** Trade US equities (market hours) and crypto (24/7)
+- **Market-Aware Scanner:** Auto-detects active markets and scans appropriate assets
+- **Multi-Strategy Framework:** 4 trading strategies with asset-class adaptation
+- **Dynamic Universe Management:** S&P 100 equities + top 15 crypto + 6 forex pairs
 - **Risk Management:** Portfolio-level constraints and position sizing
 - **Paper Trading:** Safe testing with Alpaca paper trading account
 - **Backtesting:** Test strategies on historical data
@@ -477,12 +480,13 @@ trading-crew/
 **"Alpaca connection failed"**
 - Verify API keys are correct
 - Check base URL (paper vs live)
-- Ensure market is open (9:30 AM - 4:00 PM ET, Mon-Fri)
+- Ensure market is open for US equities (9:30 AM - 4:00 PM ET, Mon-Fri)
+- Crypto trades 24/7 regardless of market hours
 
 **"No signal generated"**
 - This is normal! Strategy only trades when conditions are met
 - Check logs for signal generation details
-- Try different symbol or timeframe
+- Try different symbol, timeframe, or market (equity vs crypto)
 
 ---
 
