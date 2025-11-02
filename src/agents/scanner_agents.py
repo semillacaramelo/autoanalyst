@@ -43,7 +43,8 @@ class ScannerAgents:
             tools=[get_sp100_symbols_tool, fetch_universe_data_tool, analyze_volatility_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=True
+            allow_delegation=False,  # Disable delegation to reduce API calls
+            max_iter=3  # Limit iterations to prevent runaway loops
         )
 
     def technical_setup_agent(self, llm) -> Agent:
@@ -54,7 +55,8 @@ class ScannerAgents:
             tools=[analyze_technical_setup_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=True
+            allow_delegation=False,  # Disable delegation to reduce API calls
+            max_iter=3  # Limit iterations to prevent runaway loops
         )
 
     def liquidity_filter_agent(self, llm) -> Agent:
@@ -65,7 +67,8 @@ class ScannerAgents:
             tools=[filter_by_liquidity_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=True
+            allow_delegation=False,  # Disable delegation to reduce API calls
+            max_iter=3  # Limit iterations to prevent runaway loops
         )
 
     def market_intelligence_chief(self, llm) -> Agent:
@@ -76,5 +79,6 @@ class ScannerAgents:
             tools=[],
             llm=llm,
             verbose=True,
-            allow_delegation=True
+            allow_delegation=False,  # Disable delegation to reduce API calls
+            max_iter=3  # Limit iterations to prevent runaway loops
         )

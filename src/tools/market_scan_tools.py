@@ -156,12 +156,18 @@ class MarketScanTools:
                 Tuple of (symbol, DataFrame or None)
             """
             try:
-                result = alpaca_manager.get_bars(symbol, timeframe, limit)
-                if result["success"]:
-                    return (symbol, result["data"])
+                # Fetch historical bars using the correct method name
+                df = alpaca_manager.fetch_historical_bars(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    limit=limit
+                )
+                
+                if df is not None and not df.empty:
+                    return (symbol, df)
                 else:
                     logger.warning(
-                        f"Failed to fetch data for {symbol}: {result.get('error', 'Unknown error')}"
+                        f"No data returned for {symbol}"
                     )
                     return (symbol, None)
             except Exception as e:

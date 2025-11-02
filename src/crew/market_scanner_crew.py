@@ -42,11 +42,13 @@ class MarketScannerCrew:
             self.chief_analyst = None
             return
             
-        # Use enhanced Gemini connector with dynamic model selection
-        # Market scanner typically makes many API calls (analyzing 100+ stocks across 4 agents)
-        # We use a conservative estimate that fits within RPM limits, relying on the connector's
-        # built-in rate limiting to handle the actual request flow
-        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai(estimated_requests=8)
+        # Use enhanced Gemini connector with dynamic model selection and auto-rotation
+        # Market scanner makes many API calls (analyzing 100+ stocks across 4 agents)
+        # Auto-rotate enables efficient use of all available API keys without waiting
+        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai(
+            estimated_requests=8,
+            auto_rotate=True  # Enable automatic key rotation for intensive operations
+        )
         
         llm = LLM(
             model=model_name,

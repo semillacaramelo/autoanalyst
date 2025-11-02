@@ -261,14 +261,16 @@ class EnhancedGeminiConnectionManager:
             return "***"
         return f"...{api_key[-4:]}"
 
-    def get_llm_for_crewai(self, estimated_requests: int = 8) -> Tuple[str, str]:
+    def get_llm_for_crewai(self, estimated_requests: int = 8, auto_rotate: bool = True) -> Tuple[str, str]:
         """
-        Get the best available model and API key for CrewAI.
+        Get the best available model and API key for CrewAI with automatic key rotation.
 
         Args:
             estimated_requests: Estimated number of API calls this crew will make.
                                Default is 8 (conservative estimate that fits within Flash RPM limit of 10).
                                This is used to reserve quota and prevent 429 errors.
+            auto_rotate: If True, automatically rotates to next available key when rate limited.
+                        If False, waits for current key to become available (legacy behavior).
 
         Returns:
             (model_name, api_key): Model name with "gemini/" prefix and API key to use
@@ -278,10 +280,8 @@ class EnhancedGeminiConnectionManager:
 
         Thread-safe: Uses a lock to ensure atomic quota checking during parallel execution.
         
-        Note: This method reserves quota for multiple requests (estimated_requests) to prevent
-        429 RESOURCE_EXHAUSTED errors. CrewAI makes many API calls per crew execution,
-        but we limit to 8 to stay within Flash's 10 RPM limit. The system will automatically
-        throttle additional requests through rate limiting.
+        Note: With auto_rotate=True, the system will find the best available key immediately
+        instead of waiting, enabling efficient multi-key usage for intensive operations.
         """
         with self._lock:
             # Try each key
@@ -307,19 +307,26 @@ class EnhancedGeminiConnectionManager:
                             )
                             return (f"gemini/{model}", api_key)
                         elif wait_time and wait_time > 0:
-                            # Need to wait for RPM
-                            logger.info(
-                                f"Waiting {wait_time:.1f}s for Flash RPM limit on key {masked_key}"
-                            )
-                            time.sleep(wait_time)
-                            # Reserve quota for all estimated requests
-                            for _ in range(estimated_requests):
-                                self.quota_tracker.record_request(api_key, tier)
-                            logger.info(
-                                f"Selected Flash model {model} with key {masked_key} "
-                                f"(reserved {estimated_requests} requests after wait)"
-                            )
-                            return (f"gemini/{model}", api_key)
+                            if auto_rotate:
+                                # Skip to next key instead of waiting
+                                logger.debug(
+                                    f"Flash RPM limit on key {masked_key}, rotating to next key"
+                                )
+                                continue
+                            else:
+                                # Wait for RPM (legacy behavior)
+                                logger.info(
+                                    f"Waiting {wait_time:.1f}s for Flash RPM limit on key {masked_key}"
+                                )
+                                time.sleep(wait_time)
+                                # Reserve quota for all estimated requests
+                                for _ in range(estimated_requests):
+                                    self.quota_tracker.record_request(api_key, tier)
+                                logger.info(
+                                    f"Selected Flash model {model} with key {masked_key} "
+                                    f"(reserved {estimated_requests} requests after wait)"
+                                )
+                                return (f"gemini/{model}", api_key)
                         # else: wait_time is None, quota exhausted, try next
 
                 # Flash exhausted on this key, try Pro
@@ -341,22 +348,35 @@ class EnhancedGeminiConnectionManager:
                             )
                             return (f"gemini/{model}", api_key)
                         elif wait_time and wait_time > 0:
-                            logger.info(
-                                f"Waiting {wait_time:.1f}s for Pro RPM limit on key {masked_key}"
-                            )
-                            time.sleep(wait_time)
-                            # Reserve quota for all estimated requests
-                            for _ in range(estimated_requests):
-                                self.quota_tracker.record_request(api_key, tier)
-                            logger.info(
-                                f"Using Pro model {model} with key {masked_key} "
-                                f"(reserved {estimated_requests} requests after wait)"
-                            )
-                            return (f"gemini/{model}", api_key)
+                            if auto_rotate:
+                                # Skip to next key instead of waiting
+                                logger.debug(
+                                    f"Pro RPM limit on key {masked_key}, rotating to next key"
+                                )
+                                continue
+                            else:
+                                # Wait for RPM (legacy behavior)
+                                logger.info(
+                                    f"Waiting {wait_time:.1f}s for Pro RPM limit on key {masked_key}"
+                                )
+                                time.sleep(wait_time)
+                                # Reserve quota for all estimated requests
+                                for _ in range(estimated_requests):
+                                    self.quota_tracker.record_request(api_key, tier)
+                                logger.info(
+                                    f"Using Pro model {model} with key {masked_key} "
+                                    f"(reserved {estimated_requests} requests after wait)"
+                                )
+                                return (f"gemini/{model}", api_key)
 
-                logger.warning(
-                    f"Insufficient quota for {estimated_requests} requests on key {masked_key}, trying next key"
-                )
+                if auto_rotate:
+                    logger.debug(
+                        f"Key {masked_key} exhausted, rotating to next key ({key_idx + 1}/{len(self.api_keys)})"
+                    )
+                else:
+                    logger.warning(
+                        f"Insufficient quota for {estimated_requests} requests on key {masked_key}, trying next key"
+                    )
 
             # All keys and models exhausted
             raise RuntimeError(
