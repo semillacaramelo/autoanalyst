@@ -5,127 +5,65 @@ Provides functions for scanning a universe of assets to identify trading opportu
 
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict
+from typing import List, Dict, Optional
 from src.connectors.alpaca_connector import alpaca_manager
 from src.tools.analysis_tools import TechnicalAnalysisTools
+from src.tools.universe_manager import universe_manager
+from src.utils.asset_classifier import AssetClassifier
+from src.constants import SP_100_SYMBOLS
 import logging
 
 logger = logging.getLogger(__name__)
 
-# S&P 100 as the default universe
-SP_100_SYMBOLS = [
-    "AAPL",
-    "MSFT",
-    "AMZN",
-    "GOOGL",
-    "GOOG",
-    "NVDA",
-    "TSLA",
-    "META",
-    "BRK-B",
-    "JNJ",
-    "V",
-    "JPM",
-    "PG",
-    "MA",
-    "UNH",
-    "HD",
-    "BAC",
-    "CVX",
-    "LLY",
-    "XOM",
-    "AVGO",
-    "PFE",
-    "COST",
-    "MRK",
-    "PEP",
-    "ABBV",
-    "KO",
-    "ADBE",
-    "CSCO",
-    "TMO",
-    "WMT",
-    "MCD",
-    "DIS",
-    "ACN",
-    "CRM",
-    "ABT",
-    "VZ",
-    "NFLX",
-    "CMCSA",
-    "NKE",
-    "PM",
-    "NEE",
-    "TXN",
-    "HON",
-    "UPS",
-    "AMD",
-    "ORCL",
-    "LIN",
-    "QCOM",
-    "BMY",
-    "WFC",
-    "DHR",
-    "INTC",
-    "CAT",
-    "LOW",
-    "COP",
-    "GS",
-    "IBM",
-    "RTX",
-    "MDT",
-    "UNP",
-    "AMGN",
-    "BA",
-    "SBUX",
-    "GE",
-    "DE",
-    "NOW",
-    "T",
-    "AXP",
-    "BLK",
-    "MS",
-    "PLD",
-    "AMT",
-    "EL",
-    "GILD",
-    "ADP",
-    "C",
-    "TJX",
-    "SCHW",
-    "ZTS",
-    "ANTM",
-    "MO",
-    "DUK",
-    "SPGI",
-    "ISRG",
-    "CVS",
-    "SO",
-    "MMC",
-    "CB",
-    "CI",
-    "FISV",
-    "PYPL",
-    "TMUS",
-    "SYK",
-    "USB",
-    "LMT",
-    "BDX",
-    "TGT",
-    "MDLZ",
-]
+# Initialize asset classifier for multi-market support
+asset_classifier = AssetClassifier()
 
 
 class MarketScanTools:
 
     @staticmethod
     def get_sp100_symbols() -> List[str]:
-        """Returns the list of S&P 100 symbols."""
+        """Returns the list of S&P 100 symbols (legacy method for backwards compatibility)."""
         return SP_100_SYMBOLS
 
     @staticmethod
+    def get_universe_symbols(
+        market: Optional[str] = None, max_symbols: Optional[int] = None
+    ) -> List[str]:
+        """
+        Get trading universe symbols for a specific market.
+
+        Args:
+            market: Market to scan ('US_EQUITY', 'CRYPTO', 'FOREX', or None for US_EQUITY)
+            max_symbols: Maximum number of symbols to return (None for all)
+
+        Returns:
+            List of symbols from the specified universe
+
+        Examples:
+            >>> get_universe_symbols('CRYPTO', 10)  # Top 10 crypto
+            ['BTC/USD', 'ETH/USD', ...]
+            >>> get_universe_symbols('US_EQUITY')  # S&P 100
+            ['AAPL', 'MSFT', ...]
+        """
+        # Default to US_EQUITY if no market specified (backwards compatibility)
+        target_market = market or 'US_EQUITY'
+
+        logger.info(
+            f"Fetching universe symbols for market: {target_market}, "
+            f"max_symbols: {max_symbols or 'all'}"
+        )
+
+        return universe_manager.get_active_universe(
+            market=target_market, max_symbols=max_symbols
+        )
+
+    @staticmethod
     def fetch_universe_data(
-        symbols: List[str], timeframe: str = "1Day", limit: int = 100
+        symbols: List[str],
+        timeframe: str = "1Day",
+        limit: int = 100,
+        asset_class: Optional[str] = None
     ) -> Dict[str, pd.DataFrame]:
         """
         Fetch historical data for a universe of symbols using parallel execution.
@@ -134,13 +72,23 @@ class MarketScanTools:
         dramatically improving performance for large symbol lists. With parallel
         fetching, scanning 100 symbols completes in ~1 minute vs 7+ minutes sequentially.
 
+        Supports multi-asset class fetching (stocks, crypto, forex) with automatic
+        detection via AssetClassifier.
+
         Args:
-            symbols: List of stock symbols to fetch
-            timeframe: Bar timeframe (e.g., '1Day', '1Hour')
+            symbols: List of symbols to fetch (stocks, crypto, or forex)
+            timeframe: Bar timeframe (e.g., '1Day', '1Hour', '15Min')
             limit: Number of bars to fetch per symbol
+            asset_class: Optional asset class override ('US_EQUITY', 'CRYPTO', 'FOREX')
+                        If None, auto-detected per symbol
 
         Returns:
             Dictionary mapping symbols to their DataFrames (only successful fetches)
+
+        Examples:
+            >>> fetch_universe_data(['AAPL', 'MSFT'])  # Auto-detects stocks
+            >>> fetch_universe_data(['BTC/USD', 'ETH/USD'], asset_class='CRYPTO')
+            >>> fetch_universe_data(['EUR/USD', 'GBP/USD'], asset_class='FOREX')
         """
         universe_data = {}
 
@@ -150,24 +98,35 @@ class MarketScanTools:
             Used by ThreadPoolExecutor for concurrent execution.
 
             Args:
-                symbol: Stock symbol to fetch
+                symbol: Symbol to fetch (stock/crypto/forex)
 
             Returns:
                 Tuple of (symbol, DataFrame or None)
             """
             try:
-                # Fetch historical bars using the correct method name
+                # Auto-detect asset class if not specified
+                if asset_class is None:
+                    classification = asset_classifier.classify(symbol)
+                    detected_class = classification['type']
+                else:
+                    detected_class = asset_class
+
+                # Fetch historical bars with asset class for proper routing
                 df = alpaca_manager.fetch_historical_bars(
                     symbol=symbol,
                     timeframe=timeframe,
-                    limit=limit
+                    limit=limit,
+                    asset_class=detected_class
                 )
                 
                 if df is not None and not df.empty:
+                    logger.debug(
+                        f"Fetched {len(df)} bars for {symbol} ({detected_class})"
+                    )
                     return (symbol, df)
                 else:
                     logger.warning(
-                        f"No data returned for {symbol}"
+                        f"No data returned for {symbol} ({detected_class})"
                     )
                     return (symbol, None)
             except Exception as e:
@@ -189,7 +148,8 @@ class MarketScanTools:
                     universe_data[symbol] = data
 
         logger.info(
-            f"Successfully fetched data for {len(universe_data)}/{len(symbols)} symbols"
+            f"Successfully fetched data for {len(universe_data)}/{len(symbols)} symbols "
+            f"(asset_class: {asset_class or 'auto-detect'})"
         )
         return universe_data
 

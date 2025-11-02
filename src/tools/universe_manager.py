@@ -15,11 +15,9 @@ import logging
 from typing import List, Dict
 from src.connectors.alpaca_connector import alpaca_manager
 from alpaca.trading.enums import AssetClass, AssetStatus
+from src.constants import SP_100_SYMBOLS
 
 logger = logging.getLogger(__name__)
-
-# Import S&P 100 from existing market scan tools
-from src.tools.market_scan_tools import SP_100_SYMBOLS
 
 
 class UniverseManager:
