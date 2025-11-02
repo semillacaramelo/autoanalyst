@@ -871,9 +871,683 @@ GitHub Copilot agent completed Phase 6 implementation on branch `copilot/impleme
 
 **Adjusted Timeline**:
 - **Week 1**: **100% COMPLETE ✅** (November 1-2, 2025)
-- **Week 2**: Begin test coverage expansion, autonomous mode validation, scanner optimization
-- **Week 3-4**: On track for production deployment
+- **Week 2**: Multi-market support, autonomous mode validation, test coverage expansion
+- **Week 3**: Strategy optimization for different asset classes, performance tuning
+- **Week 4**: Production deployment preparation
 
-**Last Updated**: November 2, 2025, 08:00 UTC  
-**Status**: Week 1 COMPLETE ✅  
-**Next Review**: Week 2 kickoff (November 3, 2025)
+**Last Updated**: November 2, 2025, 08:30 UTC  
+**Status**: Week 1 COMPLETE ✅, Week 2 Priorities Defined  
+**Next Review**: Week 2 implementation (November 3-9, 2025)
+
+---
+
+## Part 6: True 24/7 Trading - Multi-Market Support (Week 2 Priority)
+
+### Executive Summary
+
+**Business Case**: The current system is designed for US equity hours only (9:30 AM - 4:00 PM ET), limiting autonomous operation to ~6.5 hours/day (27% uptime). To achieve true 24/7 trading capability, the system must support multiple asset classes that trade outside US market hours, particularly **Crypto** (24/7) and potentially **Forex** (23/5).
+
+**Current State Assessment**:
+- ✅ Foundation already exists: `target_markets: ["US_EQUITY", "CRYPTO"]` in settings
+- ✅ Market calendar has CRYPTO market (24/7 coverage) defined
+- ✅ Global scheduler checks active markets and sleeps when closed
+- ❌ **CRITICAL GAP**: Scanner hardcoded to S&P 100 (US equities only)
+- ❌ **CRITICAL GAP**: No crypto data fetching in Alpaca connector
+- ❌ **CRITICAL GAP**: Strategies not validated for crypto/forex characteristics
+- ❌ **HIGH GAP**: No asset class detection or strategy selection logic
+
+**Required Capabilities**:
+1. **Multi-Market Asset Discovery** - Scanner must support crypto, forex, international equities
+2. **Asset-Class-Aware Strategy Selection** - Different strategies for crypto vs equities
+3. **Cross-Asset Data Fetching** - Support crypto/forex API endpoints in Alpaca
+4. **Strategy Adaptation** - Adjust indicators for 24/7 markets (no gaps, different volatility)
+5. **Intelligent Market Rotation** - Auto-switch between markets as they open/close
+
+---
+
+### Gap Analysis: Current vs True 24/7
+
+#### Current System Limitations
+
+**1. Hardcoded Asset Universe (CRITICAL)**
+```python
+# src/tools/market_scan_tools.py - Line 15
+SP_100_SYMBOLS = ["AAPL", "MSFT", "AMZN", ...]  # Only US equities
+```
+**Impact**: Scanner can only analyze 100 US stocks, all trading during same hours
+**Blocker**: Cannot discover crypto/forex opportunities when US market is closed
+
+**2. Single Asset Class Connector (CRITICAL)**
+```python
+# src/connectors/alpaca_connector.py - Line 61
+@property
+def data_client(self) -> StockHistoricalDataClient:
+    # Only supports stocks, missing CryptoHistoricalDataClient
+```
+**Impact**: System cannot fetch crypto/forex market data
+**Blocker**: Cannot trade 24/7 even if symbols are provided
+
+**3. Strategy Assumptions (HIGH)**
+```python
+# All strategies assume:
+# - Market gaps (overnight, weekends)
+# - Volume patterns typical of equities
+# - Timeframes suited for 9:30-4:00 trading
+```
+**Impact**: Strategies not validated for 24/7 markets with different characteristics
+**Risk**: Poor performance or false signals in crypto markets
+
+**4. No Asset Class Intelligence (HIGH)**
+```python
+# No logic to:
+# - Detect asset class from symbol (AAPL vs BTC/USD)
+# - Select appropriate strategies per asset class
+# - Adjust risk parameters for different volatility profiles
+```
+**Impact**: One-size-fits-all approach may fail across asset classes
+
+---
+
+### Proposed Architecture: Intelligent Multi-Market System
+
+#### Phase 1: Multi-Market Data Infrastructure (Week 2)
+
+**1.1 Asset Class Detection System**
+```python
+# NEW: src/utils/asset_classifier.py
+class AssetClassifier:
+    """Detects asset class from symbol and selects appropriate data client."""
+    
+    ASSET_CLASSES = {
+        "CRYPTO": {
+            "patterns": ["USD", "USDT", "BTC", "ETH"],  # BTC/USD, ETH/USDT
+            "client_type": "crypto",
+            "markets": ["CRYPTO"],
+            "trading_hours": "24/7"
+        },
+        "FOREX": {
+            "patterns": ["/"],  # EUR/USD, GBP/JPY
+            "client_type": "forex",
+            "markets": ["FOREX"],
+            "trading_hours": "23/5"
+        },
+        "US_EQUITY": {
+            "patterns": ["^[A-Z]{1,5}$"],  # AAPL, MSFT, SPY
+            "client_type": "stock",
+            "markets": ["US_EQUITY"],
+            "trading_hours": "6.5h/day"
+        }
+    }
+    
+    @staticmethod
+    def classify(symbol: str) -> dict:
+        """Returns asset class info for symbol."""
+        # Crypto: BTC/USD, BTCUSD, BTC-USD
+        # Forex: EUR/USD, EURUSD
+        # Equity: AAPL, SPY
+        pass
+```
+
+**1.2 Multi-Asset Alpaca Connector Enhancement**
+```python
+# MODIFY: src/connectors/alpaca_connector.py
+
+from alpaca.data.historical import (
+    StockHistoricalDataClient,
+    CryptoHistoricalDataClient,
+    # ForexHistoricalDataClient  # If available
+)
+
+class AlpacaConnectionManager:
+    def __init__(self):
+        # ...existing code...
+        self._crypto_client = None
+        # self._forex_client = None
+    
+    @property
+    def crypto_client(self) -> CryptoHistoricalDataClient:
+        """Lazy-loaded crypto data client."""
+        if not self._crypto_client:
+            self._crypto_client = CryptoHistoricalDataClient(
+                api_key=self.api_key,
+                secret_key=self.secret_key
+            )
+        return self._crypto_client
+    
+    def fetch_historical_bars(
+        self,
+        symbol: str,
+        timeframe: str = "1Min",
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        limit: int = 100,
+        asset_class: Optional[str] = None  # NEW parameter
+    ) -> pd.DataFrame:
+        """
+        Fetch historical OHLCV data with automatic asset class detection.
+        
+        Args:
+            asset_class: Optional override. If None, auto-detects from symbol.
+        """
+        if asset_class is None:
+            from src.utils.asset_classifier import AssetClassifier
+            asset_class = AssetClassifier.classify(symbol)["type"]
+        
+        if asset_class == "CRYPTO":
+            # Use crypto-specific request and client
+            return self._fetch_crypto_bars(symbol, timeframe, start, end, limit)
+        elif asset_class == "FOREX":
+            return self._fetch_forex_bars(symbol, timeframe, start, end, limit)
+        else:
+            # Existing stock logic
+            return self._fetch_stock_bars(symbol, timeframe, start, end, limit)
+```
+
+**1.3 Dynamic Asset Universe Management**
+```python
+# NEW: src/tools/universe_manager.py
+class UniverseManager:
+    """Manages tradable asset universes across multiple markets."""
+    
+    UNIVERSES = {
+        "US_EQUITY": {
+            "source": "static",  # or "api" for dynamic fetching
+            "symbols": SP_100_SYMBOLS,
+            "min_volume": 1_000_000,  # shares/day
+            "active_hours": "US_EQUITY"
+        },
+        "CRYPTO": {
+            "source": "dynamic",  # Fetch from Alpaca API
+            "filters": {
+                "min_volume_24h": 10_000_000,  # USD volume
+                "min_market_cap": 1_000_000_000,  # $1B+
+                "exclude": ["SHIB", "DOGE"]  # Optional blacklist
+            },
+            "active_hours": "CRYPTO"  # 24/7
+        },
+        "FOREX": {
+            "source": "static",
+            "symbols": ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD"],
+            "active_hours": "FOREX"
+        }
+    }
+    
+    def get_active_universe(self, market: str) -> List[str]:
+        """Returns list of symbols for the given market."""
+        universe = self.UNIVERSES.get(market)
+        if universe["source"] == "static":
+            return universe["symbols"]
+        elif universe["source"] == "dynamic":
+            return self._fetch_dynamic_universe(market, universe["filters"])
+    
+    def _fetch_dynamic_universe(self, market: str, filters: dict) -> List[str]:
+        """Fetch tradable assets from Alpaca API with filters."""
+        # Use Alpaca API to get list of tradable crypto assets
+        # Apply volume, market cap filters
+        # Return top N by liquidity
+        pass
+```
+
+**1.4 Intelligent Scanner Crew (Market-Aware)**
+```python
+# MODIFY: src/crew/market_scanner_crew.py
+class MarketScannerCrew:
+    def __init__(self, target_market: str = None, skip_init: bool = False):
+        """
+        Initialize scanner for specific market or auto-detect active markets.
+        
+        Args:
+            target_market: "US_EQUITY", "CRYPTO", "FOREX", or None (auto-detect)
+        """
+        if target_market is None:
+            # Auto-detect active markets
+            calendar = MarketCalendar()
+            active = calendar.get_active_markets(
+                datetime.now(pytz.utc),
+                settings.target_markets
+            )
+            target_market = active[0] if active else "CRYPTO"  # Default to 24/7
+        
+        self.target_market = target_market
+        self.universe_manager = UniverseManager()
+        # ...rest of init...
+    
+    def run(self):
+        """Run scanner for current target market."""
+        symbols = self.universe_manager.get_active_universe(self.target_market)
+        logger.info(f"Scanning {len(symbols)} symbols in {self.target_market} market")
+        
+        # Update task descriptions to include market context
+        fetch_and_analyze_volatility = Task(
+            description=f"Fetch {self.target_market} symbols and analyze volatility. "
+                       f"Asset class: {self.target_market}, symbols: {symbols[:10]}...",
+            # ...
+        )
+```
+
+---
+
+#### Phase 2: Strategy Adaptation for Multi-Market (Week 2-3)
+
+**2.1 Asset-Class-Specific Strategy Registry**
+```python
+# MODIFY: src/strategies/registry.py
+class StrategyRegistry:
+    STRATEGIES = {
+        "3ma": {
+            "class": TripleMAStrategy,
+            "suitable_for": ["US_EQUITY", "CRYPTO", "FOREX"],  # Universal
+            "optimal_timeframes": {
+                "US_EQUITY": ["5Min", "15Min", "1Hour"],
+                "CRYPTO": ["15Min", "1Hour", "4Hour"],  # 24/7, needs longer TF
+                "FOREX": ["15Min", "1Hour"]
+            }
+        },
+        "rsi_breakout": {
+            "class": RSIBreakoutStrategy,
+            "suitable_for": ["US_EQUITY", "CRYPTO"],
+            "optimal_timeframes": {
+                "US_EQUITY": ["5Min", "15Min"],
+                "CRYPTO": ["1Hour", "4Hour"]  # Less noise in longer TF
+            },
+            "params": {
+                "CRYPTO": {"rsi_oversold": 25, "rsi_overbought": 75}  # Wider range
+            }
+        },
+        "mean_reversion_crypto": {  # NEW: Crypto-specific strategy
+            "class": CryptoMeanReversionStrategy,
+            "suitable_for": ["CRYPTO"],
+            "description": "Exploits 24/7 volatility patterns in crypto"
+        }
+    }
+    
+    @staticmethod
+    def get_best_strategies(asset_class: str, market_condition: str = None) -> List[str]:
+        """Returns optimal strategies for given asset class."""
+        suitable = [
+            name for name, info in StrategyRegistry.STRATEGIES.items()
+            if asset_class in info["suitable_for"]
+        ]
+        # Further filter by market_condition (trending, ranging, high_vol)
+        return suitable
+```
+
+**2.2 Strategy Base Class Enhancement**
+```python
+# MODIFY: src/strategies/base_strategy.py
+class TradingStrategy(ABC):
+    def __init__(self, asset_class: str = "US_EQUITY"):
+        self.asset_class = asset_class
+        self.params = self._get_asset_specific_params()
+    
+    def _get_asset_specific_params(self) -> dict:
+        """Override default parameters based on asset class."""
+        if self.asset_class == "CRYPTO":
+            return {
+                "min_bars_required": 100,  # More data for 24/7 markets
+                "volume_weight": 0.5,  # Less emphasis on volume (24/7 flow)
+                "volatility_multiplier": 1.5,  # Crypto is more volatile
+                "atr_periods": 20  # Longer for smoothing
+            }
+        elif self.asset_class == "FOREX":
+            return {
+                "min_bars_required": 50,
+                "volume_weight": 0.0,  # Volume not reliable in forex
+                "trend_filter": "mandatory"  # Forex is trend-friendly
+            }
+        else:
+            return self._default_params()
+    
+    @abstractmethod
+    def validate_signal(self, df: pd.DataFrame, signal: dict, data_feed: str) -> dict:
+        """
+        Validate signal with asset-class-specific confirmations.
+        
+        For CRYPTO: Skip volume checks, use longer ATR, check for wash trading
+        For FOREX: Skip volume, emphasize trend, check for news events
+        For EQUITY: Use existing logic
+        """
+        pass
+```
+
+**2.3 Crypto-Specific Considerations**
+```python
+# NEW: src/strategies/crypto_adaptations.py
+class CryptoMarketAnalyzer:
+    """Handles crypto-specific market characteristics."""
+    
+    @staticmethod
+    def detect_wash_trading(df: pd.DataFrame) -> bool:
+        """Detect artificial volume patterns in crypto."""
+        # Check for suspicious volume spikes without price movement
+        # Flag symbols with potential manipulation
+        pass
+    
+    @staticmethod
+    def adjust_for_funding_rates(symbol: str, signal: str) -> str:
+        """Modify signal based on perpetual futures funding rates."""
+        # High positive funding = too many longs, consider shorting
+        # High negative funding = too many shorts, consider buying
+        pass
+    
+    @staticmethod
+    def filter_low_liquidity_periods(df: pd.DataFrame) -> pd.DataFrame:
+        """Remove periods with abnormally low liquidity."""
+        # Even 24/7 markets have quieter periods (US night hours)
+        # Filter out thin periods to avoid slippage
+        pass
+```
+
+---
+
+#### Phase 3: Intelligent Market Orchestration (Week 3)
+
+**3.1 Smart Market Rotation**
+```python
+# NEW: src/crew/market_rotation_strategy.py
+class MarketRotationStrategy:
+    """Determines which market to trade based on conditions."""
+    
+    def select_active_market(self) -> str:
+        """
+        Select best market to trade right now.
+        
+        Priority logic:
+        1. US market hours (9:30-4:00 ET) → Trade US_EQUITY (highest liquidity)
+        2. Asian hours (18:00-2:00 ET) → Trade CRYPTO (24/7, but check Asian crypto activity)
+        3. European hours (3:00-11:00 ET) → Trade CRYPTO or EU_EQUITY (if supported)
+        4. Market closed periods → Default to CRYPTO (24/7 availability)
+        
+        Also consider:
+        - Current volatility in each market
+        - Recent P&L performance per market
+        - Number of opportunities found in last scan
+        """
+        calendar = MarketCalendar()
+        now = datetime.now(pytz.utc)
+        
+        # Check all configured markets
+        active_markets = calendar.get_active_markets(now, settings.target_markets)
+        
+        if "US_EQUITY" in active_markets:
+            # US market open = highest priority (best liquidity)
+            return "US_EQUITY"
+        elif active_markets:
+            # Other markets open, select by recent performance
+            return self._select_by_performance(active_markets)
+        else:
+            # All markets closed, default to 24/7 crypto
+            return "CRYPTO"
+    
+    def _select_by_performance(self, markets: List[str]) -> str:
+        """Select market with best recent performance."""
+        state = StateManager().load_state()
+        performance = state.get("market_performance", {})
+        
+        # Rank by: win_rate * avg_profit * opportunity_count
+        ranked = sorted(
+            markets,
+            key=lambda m: performance.get(m, {}).get("score", 0),
+            reverse=True
+        )
+        return ranked[0] if ranked else markets[0]
+```
+
+**3.2 Enhanced Global Scheduler**
+```python
+# MODIFY: src/utils/global_scheduler.py
+class AutoTradingScheduler:
+    def __init__(self):
+        self.market_rotation = MarketRotationStrategy()
+        # ...existing code...
+    
+    def run_forever(self):
+        """Enhanced 24/7 loop with intelligent market switching."""
+        logger.info("Starting AutoTradingScheduler in TRUE 24/7 mode with multi-market support.")
+        
+        while True:
+            current_time_utc = datetime.now(pytz.utc)
+            
+            # Intelligent market selection (not just checking if open)
+            target_market = self.market_rotation.select_active_market()
+            logger.info(f"Selected target market: {target_market}")
+            
+            # Run scanner for selected market
+            scanner = MarketScannerCrew(target_market=target_market)
+            scan_results = scanner.run()
+            
+            # For each opportunity, select best strategy for that asset class
+            for asset in scan_results["top_assets"]:
+                asset_class = AssetClassifier.classify(asset["symbol"])["type"]
+                strategies = StrategyRegistry.get_best_strategies(
+                    asset_class,
+                    market_condition=asset.get("market_condition")
+                )
+                
+                # Trade with optimal strategy for this asset
+                for strategy in strategies[:2]:  # Top 2 strategies
+                    self.orchestrator.run_single_crew(
+                        symbol=asset["symbol"],
+                        strategy=strategy,
+                        asset_class=asset_class
+                    )
+            
+            # Adaptive sleep interval based on market activity
+            interval = self._calculate_adaptive_interval(target_market)
+            logger.info(f"Market: {target_market}, sleeping {interval/60:.1f}min")
+            time.sleep(interval)
+    
+    def _calculate_adaptive_interval(self, market: str) -> int:
+        """
+        Adjust scan frequency based on market characteristics.
+        
+        - US_EQUITY hours: Scan every 5-15 min (high activity)
+        - CRYPTO: Scan every 15-30 min (24/7, less urgent)
+        - Off-peak hours: Scan every 30-60 min (lower activity)
+        """
+        if market == "US_EQUITY":
+            return 5 * 60  # 5 minutes during US hours
+        elif market == "CRYPTO":
+            now_hour_utc = datetime.now(pytz.utc).hour
+            # More frequent during peak crypto hours (US evening = Asian morning)
+            if 12 <= now_hour_utc <= 4:  # Midnight-4am UTC = peak activity
+                return 15 * 60  # 15 min
+            else:
+                return 30 * 60  # 30 min during quieter hours
+        else:
+            return settings.scan_interval_minutes * 60
+```
+
+---
+
+### Implementation Roadmap: Week 2-3
+
+#### Week 2: Core Multi-Market Infrastructure (HIGH PRIORITY)
+
+**Day 1-2: Asset Classification & Data Layer**
+- [ ] Implement `AssetClassifier` with symbol pattern matching
+- [ ] Add `CryptoHistoricalDataClient` to Alpaca connector
+- [ ] Test crypto data fetching (BTC/USD, ETH/USD, etc.)
+- [ ] Create `UniverseManager` with dynamic crypto universe
+- [ ] Estimated time: 12-16 hours
+
+**Day 3-4: Scanner Enhancement**
+- [ ] Modify `MarketScannerCrew` to accept `target_market` parameter
+- [ ] Update `fetch_universe_data` tool to handle crypto symbols
+- [ ] Test scanner with crypto universe (top 20 coins by volume)
+- [ ] Validate scanner can discover crypto opportunities
+- [ ] Estimated time: 10-14 hours
+
+**Day 5: Strategy Adaptation**
+- [ ] Add `asset_class` parameter to all strategy classes
+- [ ] Implement `_get_asset_specific_params()` in base strategy
+- [ ] Update existing strategies with crypto-specific parameters
+- [ ] Test strategies with historical crypto data
+- [ ] Estimated time: 8-12 hours
+
+**Week 2 Deliverable**: System can scan crypto markets, fetch data, and generate signals for BTC/USD, ETH/USD using adapted strategies. Scanner runs during US market closed hours.
+
+---
+
+#### Week 3: Intelligent Orchestration (MEDIUM PRIORITY)
+
+**Day 1-2: Market Rotation Logic**
+- [ ] Implement `MarketRotationStrategy` with priority logic
+- [ ] Add market performance tracking to state manager
+- [ ] Test market selection during different hours (US open, closed, crypto peak)
+- [ ] Estimated time: 10-12 hours
+
+**Day 3-4: Enhanced Scheduler**
+- [ ] Modify `global_scheduler.py` with market rotation integration
+- [ ] Implement adaptive scan intervals per market
+- [ ] Add crypto-specific risk management (higher volatility = lower position size)
+- [ ] Test 24-hour simulation with market switching
+- [ ] Estimated time: 12-14 hours
+
+**Day 5: Integration Testing**
+- [ ] Run 24-hour live test (DRY_RUN mode)
+- [ ] Verify: US equity → Crypto → US equity transitions
+- [ ] Validate: Strategies adapt parameters per asset class
+- [ ] Monitor: API quota usage across 24 hours
+- [ ] Estimated time: 8-10 hours
+
+**Week 3 Deliverable**: Fully autonomous 24/7 system that intelligently rotates between US equities (during market hours) and crypto (24/7, prioritized during US night hours).
+
+---
+
+### Risk Assessment & Mitigation
+
+#### Technical Risks
+
+**1. Alpaca API Crypto Support (HIGH)**
+- **Risk**: Free tier may not support crypto data or trading
+- **Mitigation**: 
+  - Check Alpaca documentation for crypto availability
+  - Consider Alpaca Crypto subscription ($9-49/mo) if needed
+  - Alternative: Use Coinbase or Binance API for crypto data (requires new connector)
+  - Fallback: Start with paper crypto trading via Alpaca sandbox
+
+**2. Strategy Performance in Crypto (HIGH)**
+- **Risk**: Equity-optimized strategies may fail in 24/7 markets
+- **Mitigation**:
+  - Extensive backtesting on crypto historical data (2023-2024)
+  - Start with conservative position sizes (0.5% risk vs 2%)
+  - Monitor first 100 crypto trades closely for adjustment
+  - Implement crypto-specific stop losses (wider for volatility)
+
+**3. Increased API Quota Usage (MEDIUM)**
+- **Risk**: 24/7 scanning = 3x more API calls vs equity-only
+- **Mitigation**:
+  - Adaptive scan intervals (less frequent during quiet hours)
+  - Implement LLM response caching (30-50% reduction)
+  - Consider paid Gemini tier if needed (1000 RPM vs 10 RPM)
+  - Use longer timeframes for crypto (1H, 4H vs 5Min, 15Min)
+
+**4. Complexity & Maintenance (MEDIUM)**
+- **Risk**: Multi-market system harder to debug and maintain
+- **Mitigation**:
+  - Comprehensive logging per market/asset class
+  - Separate test suites for each asset class
+  - Phased rollout: Crypto first, then Forex if successful
+  - Good documentation of asset-specific logic
+
+#### Operational Risks
+
+**1. 24/7 Monitoring Requirements (MEDIUM)**
+- **Risk**: System runs unsupervised during night hours
+- **Mitigation**:
+  - Implement alert system for critical errors (email/SMS)
+  - Daily loss limits per market (separate for crypto vs equity)
+  - Auto-stop trading if error rate > 10%
+  - Weekly performance review by asset class
+
+**2. Crypto Market Manipulation (MEDIUM)**
+- **Risk**: Pump & dump schemes, wash trading in low-cap coins
+- **Mitigation**:
+  - Only trade top 20 crypto by market cap (>$1B)
+  - Implement wash trading detection
+  - Avoid meme coins and low-volume tokens
+  - Use conservative entry criteria (multiple confirmations)
+
+**3. Regulatory Compliance (LOW)**
+- **Risk**: Crypto trading may have different regulations
+- **Mitigation**:
+  - Start with paper trading only
+  - Consult legal/tax advisor for crypto trading implications
+  - Keep detailed records per asset class
+  - Use only regulated exchanges (Alpaca, Coinbase)
+
+---
+
+### Success Metrics: True 24/7 Operation
+
+**Uptime & Coverage:**
+- Target: 95%+ system uptime across 24 hours
+- US Equity hours: 6.5h/day (27% coverage)
+- Crypto hours: 24h/day (100% coverage)
+- Overall: 24h trading capability achieved
+
+**Market Utilization:**
+- Scan frequency: 5-30 min depending on market
+- Opportunities identified: 10-20 per day across all markets
+- Trades executed: 3-10 per day (within max_daily_trades limit)
+- Market distribution: 60% US equity, 40% crypto (by trade count)
+
+**Performance by Asset Class:**
+- US Equity: Target 55-60% win rate (existing baseline)
+- Crypto: Target 50-55% win rate (more volatile, conservative start)
+- Risk/Reward: 1.5:1 minimum per asset class
+- Max Drawdown: 5% per market, 10% overall
+
+**Technical Metrics:**
+- API quota usage: <80% of daily limits across 24 hours
+- Scanner performance: <2 min per market (improved from 180s)
+- Average trade setup time: 20-30 seconds (including LLM analysis)
+- System errors: <1% of total operations
+
+---
+
+### Dependencies & Prerequisites
+
+**Before Starting Week 2 Implementation:**
+
+1. **Verify Alpaca Crypto Support** (2 hours)
+   - Check if current subscription supports crypto data API
+   - Test basic crypto data fetch (BTC/USD, ETH/USD)
+   - Determine if upgrade needed ($9-49/mo for crypto)
+
+2. **Week 1 Completion** (DONE ✅)
+   - All critical bugs fixed
+   - Scanner functional (performance optimization can be parallel)
+   - Test coverage at 43%+
+
+3. **Additional API Keys** (Optional)
+   - Consider adding more Gemini keys for 24/7 load
+   - Current: 10 keys = 100 RPM, 2500 RPD (should be sufficient)
+   - Paid tier: 1000 RPM if needed ($20-50/mo)
+
+4. **Historical Crypto Data** (4 hours)
+   - Download 6-12 months of crypto OHLCV (BTC, ETH, top 20)
+   - Prepare backtesting datasets
+   - Calculate crypto-specific indicator baselines (ATR, volatility)
+
+---
+
+### Conclusion: Path to True Autonomous Trading
+
+The foundation for 24/7 trading already exists in the codebase (market calendar, target markets config, global scheduler). However, **3 critical gaps** block true multi-market operation:
+
+1. **Asset discovery** - Scanner locked to S&P 100
+2. **Data fetching** - No crypto/forex connectors
+3. **Strategy adaptation** - No asset-class-specific logic
+
+**Week 2-3 Priority**: Implement multi-market infrastructure to unlock true 24/7 autonomous trading with intelligent market rotation. This transforms system from **27% uptime** (US hours only) to **100% uptime** (follow the sun across global markets).
+
+**Expected Outcome**: By end of Week 3, system autonomously:
+- Trades US equities during market hours (9:30-4:00 ET)
+- Switches to crypto during US closed hours (4:00 PM - 9:30 AM)
+- Adapts strategies per asset class (wider stops for crypto, volume-weighted for equities)
+- Maintains target 10 trades/day across both markets
+- Operates 24/7 with <5% downtime (maintenance windows)
+
+**This is the critical enhancement needed to achieve true "set it and forget it" autonomous trading.**
