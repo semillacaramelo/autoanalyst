@@ -261,13 +261,13 @@ class EnhancedGeminiConnectionManager:
             return "***"
         return f"...{api_key[-4:]}"
 
-    def get_llm_for_crewai(self, estimated_requests: int = 15) -> Tuple[str, str]:
+    def get_llm_for_crewai(self, estimated_requests: int = 8) -> Tuple[str, str]:
         """
         Get the best available model and API key for CrewAI.
 
         Args:
             estimated_requests: Estimated number of API calls this crew will make.
-                               Default is 15 (conservative estimate for a typical crew run).
+                               Default is 8 (conservative estimate that fits within Flash RPM limit of 10).
                                This is used to reserve quota and prevent 429 errors.
 
         Returns:
@@ -279,8 +279,9 @@ class EnhancedGeminiConnectionManager:
         Thread-safe: Uses a lock to ensure atomic quota checking during parallel execution.
         
         Note: This method reserves quota for multiple requests (estimated_requests) to prevent
-        429 RESOURCE_EXHAUSTED errors. CrewAI makes many API calls per crew execution
-        (typically 10-20+), so we must reserve quota for all of them upfront.
+        429 RESOURCE_EXHAUSTED errors. CrewAI makes many API calls per crew execution,
+        but we limit to 8 to stay within Flash's 10 RPM limit. The system will automatically
+        throttle additional requests through rate limiting.
         """
         with self._lock:
             # Try each key
@@ -360,8 +361,10 @@ class EnhancedGeminiConnectionManager:
             # All keys and models exhausted
             raise RuntimeError(
                 f"All API keys exhausted their quotas for {estimated_requests} requests. "
-                f"Flash limit: {FREE_TIER_QUOTAS[ModelTier.FLASH].rpd} req/day, "
-                f"Pro limit: {FREE_TIER_QUOTAS[ModelTier.PRO].rpd} req/day per key. "
+                f"Flash limit: {FREE_TIER_QUOTAS[ModelTier.FLASH].rpm} RPM (per minute), "
+                f"{FREE_TIER_QUOTAS[ModelTier.FLASH].rpd} RPD (per day); "
+                f"Pro limit: {FREE_TIER_QUOTAS[ModelTier.PRO].rpm} RPM, "
+                f"{FREE_TIER_QUOTAS[ModelTier.PRO].rpd} RPD per key. "
                 f"Consider adding more API keys or reducing parallel execution."
             )
 

@@ -43,9 +43,10 @@ class MarketScannerCrew:
             return
             
         # Use enhanced Gemini connector with dynamic model selection
-        # Market scanner typically makes 40-50 API calls (analyzing 100+ stocks across 4 agents)
-        # Reserve more quota to prevent 429 errors during execution
-        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai(estimated_requests=50)
+        # Market scanner typically makes many API calls (analyzing 100+ stocks across 4 agents)
+        # We use a conservative estimate that fits within RPM limits, relying on the connector's
+        # built-in rate limiting to handle the actual request flow
+        model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai(estimated_requests=8)
         
         llm = LLM(
             model=model_name,
