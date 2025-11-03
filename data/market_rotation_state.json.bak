@@ -1,12 +1,12 @@
 {
   "market_performance": {
     "US_EQUITY": {
-      "trades": 999,
+      "trades": 1000,
       "wins": 666,
-      "total_profit": 24975.0,
-      "last_update": "2025-11-03T05:03:41.020936+00:00",
-      "win_rate": 0.6666666666666666,
-      "avg_profit": 25.0
+      "total_profit": 24950.0,
+      "last_update": "2025-11-03T09:36:52.532845+00:00",
+      "win_rate": 0.666,
+      "avg_profit": 24.95
     },
     "CRYPTO": {
       "trades": 0,
@@ -22,6 +22,6 @@
     }
   },
   "last_rotation": "CRYPTO",
-  "rotation_count": 1700,
-  "last_rotation_time": "2025-11-03T05:03:40.474979+00:00"
+  "rotation_count": 2102,
+  "last_rotation_time": "2025-11-03T09:36:51.951708+00:00"
 }
