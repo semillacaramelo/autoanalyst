@@ -2,7 +2,7 @@
 Market Calendar
 Tracks global market hours to determine when the trading system should be active.
 """
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import List
 import pytz
 
@@ -46,7 +46,7 @@ class MarketCalendar:
                     next_opens.append(today_open)
                 else:
                     # It's already past opening time today, so check tomorrow
-                    tomorrow = now_local + pytz.timedelta(days=1)
+                    tomorrow = now_local + timedelta(days=1)
                     tomorrow_open = tomorrow.replace(hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0)
                     next_opens.append(tomorrow_open)
 
