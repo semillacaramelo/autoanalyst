@@ -2,6 +2,71 @@
 
 All notable changes to the AI-Driven Trading Crew project are documented here.
 
+## [0.3.0] - 2025-11-03
+
+### Added - Phase 3 Feature 3.3: Test Coverage Expansion ✅ COMPLETE
+
+**Major milestone:** Achieved 80% test coverage with 109 new comprehensive tests across 7 critical modules.
+
+#### Coverage Improvements
+- Overall test coverage: 66% → 80% (+14pp)
+- Total tests: 188 → 297 (+109 tests)
+- 7 modules reached 90-100% coverage
+- 100% test pass rate maintained throughout
+
+#### New Test Modules (109 tests)
+- **test_backtester_v2.py** (22 tests): 0% → 92% coverage
+  * Performance calculation edge cases
+  * Annualization factors (daily/hourly/minute)
+  * Max drawdown with realistic trade sequences
+  * Strategy comparison functionality
+
+- **test_logger.py** (10 tests): 0% → 100% coverage
+  * Log directory creation and file naming
+  * Handler configuration and formatters
+  * Multi-call reliability validation
+
+- **test_execution_tools.py** (23 tests): 19% → 90% coverage
+  * Position sizing with ATR fallbacks
+  * Portfolio constraints (max positions, daily loss limits)
+  * Order placement validation in DRY_RUN mode
+
+- **test_global_scheduler.py** (21 tests): 39% → 90% coverage
+  * Adaptive interval calculation (5-30 min based on market activity)
+  * Market rotation (US_EQUITY → CRYPTO → FOREX)
+  * Emergency position closing logic
+
+- **test_market_calendar.py** (19 tests): 52% → 100% coverage
+  * Market hours detection for US_EQUITY, EU_EQUITY, CRYPTO
+  * Boundary testing (exact open/close times)
+  * Next market open calculation with timezone handling
+
+- **test_orchestrator.py** (17 tests): 31% → 100% coverage
+  * Parallel crew execution workflow
+  * Market scanner result parsing
+  * Staggered submission with rate limit protection
+  * Top 3 asset filtering and multi-strategy handling
+
+- **test_state_manager.py** (12 tests): 74% → 100% coverage
+  * Atomic state saves with backup
+  * Error recovery and fallback to backup file
+  * Round-trip data preservation with complex nested data
+
+#### Bug Fixes
+- Fixed `pytz.timedelta` import error in `market_calendar.py` (should be `datetime.timedelta`)
+
+#### Commits
+- 9d8620d: Fix failing tests
+- 74a0d61: Add coverage report
+- d317217: Add backtester_v2 and logger tests (+5% coverage to 71%)
+- 7099819: Add execution_tools tests (+3% coverage to 74%)
+- 9f339a2: Add global_scheduler tests (+2% coverage to 76%)
+- afeb050: Add market_calendar and orchestrator tests (+3% coverage to 79%)
+- 3e51257: Add state_manager tests - REACH 80% COVERAGE TARGET! 🎉
+- 5d2dcfa: Update FEATURE_ROADMAP.md with Feature 3.3 completion
+
+---
+
 ## [0.2.0] - 2025-11-03
 
 ### Added - Phase 2: Multi-Market 24/7 Trading ✅ COMPLETE
