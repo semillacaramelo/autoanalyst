@@ -371,6 +371,9 @@ class TestLongRunningOperations(unittest.TestCase):
         """Test that performance tracking handles many trades efficiently."""
         rotation = MarketRotationStrategy()
         
+        # Clear any existing state from previous runs
+        rotation.reset_performance('US_EQUITY')
+        
         # Add 1000 trades
         start_time = time.time()
         for i in range(1000):

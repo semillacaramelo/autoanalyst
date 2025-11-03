@@ -1,12 +1,12 @@
 {
   "market_performance": {
     "US_EQUITY": {
-      "trades": 1000,
+      "trades": 999,
       "wins": 666,
-      "total_profit": 24950.0,
-      "last_update": "2025-11-03T03:27:50.092332+00:00",
-      "win_rate": 0.666,
-      "avg_profit": 24.95
+      "total_profit": 24975.0,
+      "last_update": "2025-11-03T03:27:50.091592+00:00",
+      "win_rate": 0.6666666666666666,
+      "avg_profit": 25.0
     },
     "CRYPTO": {
       "trades": 0,
