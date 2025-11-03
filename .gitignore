@@ -20,6 +20,8 @@ venv.bak/
 .env
 .env.*
 logs/
+data/
+*.bak
 __pycache__/
 *.pyc
 *.pyo

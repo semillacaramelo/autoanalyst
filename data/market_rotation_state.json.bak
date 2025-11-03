@@ -4,7 +4,7 @@
       "trades": 999,
       "wins": 666,
       "total_profit": 24975.0,
-      "last_update": "2025-11-03T05:01:30.920317+00:00",
+      "last_update": "2025-11-03T05:03:41.020936+00:00",
       "win_rate": 0.6666666666666666,
       "avg_profit": 25.0
     },
@@ -22,6 +22,6 @@
     }
   },
   "last_rotation": "CRYPTO",
-  "rotation_count": 1600,
-  "last_rotation_time": "2025-11-03T05:01:30.569881+00:00"
+  "rotation_count": 1700,
+  "last_rotation_time": "2025-11-03T05:03:40.474979+00:00"
 }
