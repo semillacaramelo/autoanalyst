@@ -24,10 +24,14 @@ class TestLoggerSetup(unittest.TestCase):
         self.assertTrue(log_dir.is_dir(), "logs should be a directory")
     
     def test_log_file_created(self):
-        """Test that log file is created in logs directory."""
+        """Test that log file is created in logs directory after logging."""
+        # Force a log write to create the file
+        root_logger = logging.getLogger()
+        root_logger.info("Test log entry to ensure file creation")
+        
         log_dir = Path("logs")
         log_files = list(log_dir.glob("trading_crew_*.log"))
-        self.assertGreater(len(log_files), 0, "At least one log file should exist")
+        self.assertGreater(len(log_files), 0, "At least one log file should exist after logging")
     
     def test_root_logger_has_handlers(self):
         """Test that root logger has handlers configured."""
@@ -58,10 +62,15 @@ class TestLoggerSetup(unittest.TestCase):
     
     def test_specific_log_file_name_pattern(self):
         """Test that log files follow expected naming pattern."""
+        # Force a log write to create the file
+        root_logger = logging.getLogger()
+        root_logger.info("Test log entry for filename pattern check")
+        
         log_dir = Path("logs")
         log_files = list(log_dir.glob("trading_crew_*.log"))
         
         # Verify at least one file matches the pattern
+        self.assertGreater(len(log_files), 0, "At least one log file should exist")
         for log_file in log_files:
             # Should be in format: trading_crew_YYYYMMDD.log
             name = log_file.name
