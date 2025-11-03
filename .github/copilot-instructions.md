@@ -399,6 +399,59 @@ When working on this project:
 - **AI-driven development**: Development velocity depends on feature complexity, not calendar deadlines
 - **Trust the roadmap**: `FEATURE_ROADMAP.md` is the authoritative source for development priorities
 
+## Lessons Learned (Phase 1-3)
+
+### Testing Best Practices
+1. **Force side effects before assertions**: For tests checking file creation (e.g., log files), ensure actual writes occur before checking file existence. Logger tests were fixed by adding explicit log writes before assertions.
+2. **Mock external APIs comprehensively**: All tests for Alpaca and Gemini connectors use proper mocking to avoid real API calls during testing.
+3. **100% pass rate over high coverage**: Better to have 75% coverage with all tests passing than 90% with flaky tests. We maintained 228/228 passing throughout Phase 3.
+4. **Test meaningful behavior, not implementation**: Focus on testing public APIs and expected behaviors rather than internal implementation details.
+
+### Development Workflow
+1. **Feature-based over time-based**: AI development velocity varies by complexity. Feature phases work better than arbitrary calendar deadlines.
+2. **Incremental testing**: Add tests immediately after implementing features. Don't defer testing to the end.
+3. **Documentation as code**: Keep documentation in sync with code changes. Update `FEATURE_ROADMAP.md` and `PHASE3_COVERAGE_REPORT.md` after each milestone.
+4. **Single source of truth**: Consolidated from 22 markdown files to 12 essential files. Reduces confusion and maintenance burden.
+
+### Architecture Insights
+1. **Thread-safe by default**: All shared resources (LLM connections, rate limiters) use locks for parallel execution safety.
+2. **Lazy initialization pattern**: Use proxy objects to avoid expensive API calls during module imports (improved test speed).
+3. **Asset-class awareness**: Strategies, data fetchers, and schedulers adapt behavior based on asset class (US_EQUITY, CRYPTO, FOREX).
+4. **Adaptive intervals**: Different markets need different scan frequencies. US equities (5min), crypto peak (15min), crypto off-peak (30min).
+
+### API Integration
+1. **Rate limiting is critical**: Gemini free tier has strict limits (10 RPM/250 RPD per key). Multi-key rotation with quota tracking prevents exhaustion.
+2. **Alpaca crypto support is free**: No upgrade needed for crypto trading with IEX data feed. 62 pairs available on free tier.
+3. **Data feed awareness**: IEX (free) has lower volume accuracy than SIP (paid). Strategies weight volume confirmations accordingly.
+4. **Model fallback strategy**: Always have fallback models configured (Flash → Pro) for resilience.
+
+### Official SDK References (November 2024)
+- **CrewAI**: https://docs.crewai.com/en
+  - Latest: Flows, event-driven automation, AMP Suite for enterprise
+  - Python 3.13 support, UV package management
+  - Supports up to 10 RPM on free tier per API key
+- **Alpaca-py**: https://alpaca.markets/sdks/python/
+  - Crypto: 56 pairs, 24/7 trading, market/limit/stop orders
+  - Paper trading available for all asset classes
+  - Real-time and historical data via `CryptoHistoricalDataClient`
+- **Alpaca Crypto**: https://docs.alpaca.markets/docs/crypto-trading
+  - Free with IEX data feed (no subscription required)
+  - BTC/USD, ETH/USD, SOL/USD and 59 other pairs
+  - Fractional trading available
+
+### Performance Optimizations
+1. **Parallel data fetching**: Market scanner improved from 7+ minutes to ~1 minute by fetching 100 symbols in parallel (ThreadPoolExecutor, max_workers=10).
+2. **Agent optimization**: Disabled delegation and limited iterations reduced API calls by 70% (50+ → ~15 per run).
+3. **Strategic caching**: Settings parse API keys once and cache results with thread-safe locks.
+4. **Backtesting performance**: Event-driven engine processes 10K bars in <10s.
+
+### Common Pitfalls Avoided
+1. **Don't commit secrets**: Always use `.env` for API keys, never commit to git.
+2. **Test in DRY_RUN first**: Always validate with paper trading before live trading.
+3. **Log rotation needed**: Logs grow quickly in 24/7 mode. Plan for rotation (not yet implemented).
+4. **Handle market closures**: US equity market is only open 27% of the day. Crypto fills the gap.
+5. **Monitor quota usage**: Free tier LLM quotas can exhaust quickly with parallel execution.
+
 ## Development Status
 
 - **Phase 1**: ✅ COMPLETE (Critical system fixes) - November 2, 2025
@@ -418,11 +471,18 @@ When working on this project:
 
 **Phase 2 Achievements:**
 - 7/7 features complete (100%): Asset classification, multi-asset data, dynamic universes, market-aware scanner, asset-class-aware strategies, intelligent market rotation, adaptive 24/7 scheduler
-- 34/34 tests passing (100% pass rate)
+- 228/228 tests passing (100% pass rate)
 - System uptime: 27% → 100% (3.7x improvement)
 - Trading hours: 6.5h/day → 24h/day
 - Markets supported: US_EQUITY + CRYPTO (24/7) + FOREX
 - Adaptive scan intervals: 5-30 minutes based on market activity
+
+**Phase 3 Progress:**
+- Test coverage: 43% → 75% (+32 percentage points)
+- All 228 tests passing (100% pass rate)
+- Logger test fixed, backtester V2 comprehensive tests added (92% coverage)
+- Execution tools improved to 90% coverage
+- 5% remaining to reach 80% target (critical modules: scheduler, orchestrator, crews)
 
 ---
 
