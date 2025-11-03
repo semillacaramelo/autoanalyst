@@ -115,18 +115,13 @@ class TradingOrchestrator:
         # Step 2: Submit trading crews for top assets (up to 3)
         # Add staggered submission to prevent API rate limit spikes
         futures = []
-        
+
         # Calculate total expected crews to determine when to delay
-        total_expected_crews = sum(
-            len(asset.get("recommended_strategies", ["3ma"])) 
-            for asset in top_assets[:3]
-        )
-        
+        total_expected_crews = sum(len(asset.get("recommended_strategies", ["3ma"])) for asset in top_assets[:3])
+
         for asset_config in top_assets[:3]:  # Process top 3 assets
             for strategy in asset_config.get("recommended_strategies", ["3ma"]):
-                logger.info(
-                    f"Submitting trading crew for {asset_config['symbol']} with strategy {strategy}"
-                )
+                logger.info(f"Submitting trading crew for {asset_config['symbol']} with strategy {strategy}")
                 future = self.executor.submit(
                     self._run_trading_crew,
                     symbol=asset_config["symbol"],
@@ -188,18 +183,12 @@ class TradingOrchestrator:
         for res in results:
             if res.get("success"):
                 successes += 1
-                logger.info(
-                    f"  - SUCCESS: {res['symbol']} ({res['strategy']}). Result: {res.get('result')}"
-                )
+                logger.info(f"  - SUCCESS: {res['symbol']} ({res['strategy']}). Result: {res.get('result')}")
             else:
                 failures += 1
-                logger.error(
-                    f"  - FAILED: {res['symbol']} ({res['strategy']}). Error: {res.get('error')}"
-                )
+                logger.error(f"  - FAILED: {res['symbol']} ({res['strategy']}). Error: {res.get('error')}")
 
-        logger.info(
-            f"Cycle complete: {successes} succeeded, {failures} failed out of {len(results)} total"
-        )
+        logger.info(f"Cycle complete: {successes} succeeded, {failures} failed out of {len(results)} total")
 
 
 # Global singleton instance for easy access

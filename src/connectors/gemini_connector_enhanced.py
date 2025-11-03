@@ -137,11 +137,7 @@ class DynamicModelManager:
         """Query API for available models with caching"""
         now = time.time()
 
-        if (
-            not force_refresh
-            and self._models_cache
-            and (now - self._cache_time) < self._cache_ttl
-        ):
+        if not force_refresh and self._models_cache and (now - self._cache_time) < self._cache_ttl:
             return self._models_cache
 
         try:
@@ -193,9 +189,7 @@ class DynamicModelManager:
             model_name = model.name.replace("models/", "")
 
             # Skip if not a generative model
-            if "generateContent" not in getattr(
-                model, "supported_generation_methods", []
-            ):
+            if "generateContent" not in getattr(model, "supported_generation_methods", []):
                 continue
 
             if "flash" in model_name.lower():
@@ -207,9 +201,7 @@ class DynamicModelManager:
         flash_models.sort(key=lambda x: ("2.5" in x, "2.0" in x, x), reverse=True)
         pro_models.sort(key=lambda x: ("2.5" in x, "2.0" in x, x), reverse=True)
 
-        logger.info(
-            f"Classified models - Flash: {len(flash_models)}, Pro: {len(pro_models)}"
-        )
+        logger.info(f"Classified models - Flash: {len(flash_models)}, Pro: {len(pro_models)}")
         logger.debug(f"Flash models: {flash_models[:3]}")  # Log top 3
         logger.debug(f"Pro models: {pro_models[:3]}")
 
@@ -248,9 +240,7 @@ class EnhancedGeminiConnectionManager:
         # at a time, preventing quota exhaustion and 429 errors.
         self._lock = threading.Lock()
 
-        logger.info(
-            f"Enhanced Gemini connector initialized with {len(self.api_keys)} keys"
-        )
+        logger.info(f"Enhanced Gemini connector initialized with {len(self.api_keys)} keys")
         logger.info(f"Preferred Flash models: {self.flash_models}")
         logger.info(f"Fallback Pro models: {self.pro_models}")
 
@@ -279,7 +269,7 @@ class EnhancedGeminiConnectionManager:
             RuntimeError: If no model/key combination is available
 
         Thread-safe: Uses a lock to ensure atomic quota checking during parallel execution.
-        
+
         Note: With auto_rotate=True, the system will find the best available key immediately
         instead of waiting, enabling efficient multi-key usage for intensive operations.
         """
@@ -309,15 +299,11 @@ class EnhancedGeminiConnectionManager:
                         elif wait_time and wait_time > 0:
                             if auto_rotate:
                                 # Skip to next key instead of waiting
-                                logger.debug(
-                                    f"Flash RPM limit on key {masked_key}, rotating to next key"
-                                )
+                                logger.debug(f"Flash RPM limit on key {masked_key}, rotating to next key")
                                 continue
                             else:
                                 # Wait for RPM (legacy behavior)
-                                logger.info(
-                                    f"Waiting {wait_time:.1f}s for Flash RPM limit on key {masked_key}"
-                                )
+                                logger.info(f"Waiting {wait_time:.1f}s for Flash RPM limit on key {masked_key}")
                                 time.sleep(wait_time)
                                 # Reserve quota for all estimated requests
                                 for _ in range(estimated_requests):
@@ -350,15 +336,11 @@ class EnhancedGeminiConnectionManager:
                         elif wait_time and wait_time > 0:
                             if auto_rotate:
                                 # Skip to next key instead of waiting
-                                logger.debug(
-                                    f"Pro RPM limit on key {masked_key}, rotating to next key"
-                                )
+                                logger.debug(f"Pro RPM limit on key {masked_key}, rotating to next key")
                                 continue
                             else:
                                 # Wait for RPM (legacy behavior)
-                                logger.info(
-                                    f"Waiting {wait_time:.1f}s for Pro RPM limit on key {masked_key}"
-                                )
+                                logger.info(f"Waiting {wait_time:.1f}s for Pro RPM limit on key {masked_key}")
                                 time.sleep(wait_time)
                                 # Reserve quota for all estimated requests
                                 for _ in range(estimated_requests):
@@ -391,30 +373,29 @@ class EnhancedGeminiConnectionManager:
     def _has_quota_for_requests(self, api_key: str, tier: ModelTier, num_requests: int) -> bool:
         """
         Check if there's enough quota available for the specified number of requests.
-        
+
         Args:
             api_key: The API key to check
             tier: The model tier (Flash or Pro)
             num_requests: Number of requests to check for
-            
+
         Returns:
             True if enough quota is available, False otherwise
         """
         now = time.time()
         quota = FREE_TIER_QUOTAS[tier]
-        
+
         minute_window = self.quota_tracker.minute_windows[api_key][tier]
         day_window = self.quota_tracker.day_windows[api_key][tier]
-        
+
         # Clean old entries
         while minute_window and now - minute_window[0] > 60:
             minute_window.popleft()
         while day_window and now - day_window[0] > 86400:
             day_window.popleft()
-        
+
         # Check if we have room for num_requests
-        return (len(minute_window) + num_requests <= quota.rpm and 
-                len(day_window) + num_requests <= quota.rpd)
+        return len(minute_window) + num_requests <= quota.rpm and len(day_window) + num_requests <= quota.rpd
 
     def refresh_model_list(self):
         """Manually refresh the list of available models"""

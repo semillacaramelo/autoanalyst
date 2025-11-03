@@ -20,7 +20,7 @@ Key Features:
 
 Usage:
     from src.crew.trading_crew import trading_crew
-    
+
     # Execute crew for SPY with 3MA strategy
     result = trading_crew.run(
         symbol="SPY",
@@ -28,13 +28,14 @@ Usage:
         timeframe="1Min",
         limit=100
     )
-    
+
     # Check result
     if result['success']:
         print(f"Trade executed: {result['result']}")
     else:
         print(f"Error: {result['error']}")
 """
+
 from crewai import Crew, Process, LLM
 import threading
 import logging
@@ -47,31 +48,29 @@ from src.crew.tasks import TradingTasks
 
 logger = logging.getLogger(__name__)
 
+
 class TradingCrew:
     """
     Main trading crew orchestrator.
     Manages the complete workflow from data collection to trade execution.
     """
-    
+
     def __init__(self, skip_init: bool = False):
         """
         Initialize the trading crew.
-        
+
         Args:
             skip_init: If True, skip initialization (for help/validation commands)
         """
         if skip_init:
             self.crew = None
             return
-            
+
         # Use enhanced Gemini connector with dynamic model selection
         # Automatically selects best available model and key based on quota
         model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai()
-        
-        llm = LLM(
-            model=model_name,  # Already includes "gemini/" prefix
-            api_key=api_key
-        )
+
+        llm = LLM(model=model_name, api_key=api_key)  # Already includes "gemini/" prefix
 
         agents_factory = TradingAgents()
         tasks_factory = TradingTasks()
@@ -87,44 +86,28 @@ class TradingCrew:
         execute_trade = tasks_factory.execute_trade_task(execution_agent, context=[assess_risk])
 
         self.crew = Crew(
-            agents=[
-                data_collector_agent,
-                signal_generator_agent,
-                risk_manager_agent,
-                execution_agent
-            ],
-            tasks=[
-                collect_data,
-                generate_signal,
-                assess_risk,
-                execute_trade
-            ],
+            agents=[data_collector_agent, signal_generator_agent, risk_manager_agent, execution_agent],
+            tasks=[collect_data, generate_signal, assess_risk, execute_trade],
             process=Process.sequential,
-            verbose=True
+            verbose=True,
         )
 
         logger.info(f"TradingCrew initialized with dynamic model selection: {model_name}")
-    
-    def run(
-        self,
-        symbol: str = None,
-        strategy: str = "3ma",
-        timeframe: str = "1Min",
-        limit: int = 100
-    ) -> dict:
+
+    def run(self, symbol: str = None, strategy: str = "3ma", timeframe: str = "1Min", limit: int = 100) -> dict:
         """
         Execute the complete trading workflow.
         """
         if self.crew is None:
             raise RuntimeError("TradingCrew was initialized with skip_init=True. Cannot run.")
-            
+
         if symbol is None:
             symbol = settings.trading_symbol
-        
+
         logger.info(f"Starting trading crew for {symbol} with strategy {strategy}")
         logger.info(f"Configuration: timeframe={timeframe}, bars={limit}")
         logger.info(f"Mode: {'DRY RUN' if settings.dry_run else 'LIVE TRADING'}")
-        
+
         crew_context.market_data = None
 
         inputs = {
@@ -136,33 +119,30 @@ class TradingCrew:
             "max_risk": settings.max_risk_per_trade,
             "daily_loss": settings.daily_loss_limit,
         }
-        
+
         try:
             result = self.crew.kickoff(inputs=inputs)
-            
+
             logger.info("Trading crew completed successfully")
             logger.info(f"Result: {result}")
-            
+
             return {
                 "success": True,
                 "result": str(result),
                 "symbol": symbol,
                 "strategy": strategy,
-                "configuration": inputs
+                "configuration": inputs,
             }
-        
+
         except Exception as e:
             logger.error(f"Trading crew execution failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e),
-                "symbol": symbol,
-                "strategy": strategy
-            }
+            return {"success": False, "error": str(e), "symbol": symbol, "strategy": strategy}
+
 
 # Global instance factory function for lazy initialization
 _trading_crew_instance = None
 _trading_crew_lock = threading.Lock()
+
 
 def get_trading_crew() -> TradingCrew:
     """
@@ -171,31 +151,33 @@ def get_trading_crew() -> TradingCrew:
     Thread-safe using double-checked locking pattern.
     """
     global _trading_crew_instance
-    
+
     if _trading_crew_instance is None:
         with _trading_crew_lock:
             # Double-check: another thread might have created instance while we waited
             if _trading_crew_instance is None:
                 _trading_crew_instance = TradingCrew()
-    
+
     return _trading_crew_instance
+
 
 # For backwards compatibility, provide a proxy that lazily initializes
 class _TradingCrewProxy:
     """
     Proxy that lazily initializes the trading crew on first access.
-    
+
     Only the 'run' method is explicitly supported to maintain clear interface.
     Accessing other attributes will raise AttributeError.
     """
+
     def run(self, *args, **kwargs):
         """Execute the trading crew workflow."""
         return get_trading_crew().run(*args, **kwargs)
-    
+
     def __getattr__(self, name):
         raise AttributeError(
-            f"'_TradingCrewProxy' only supports the 'run' method. "
-            f"Attribute '{name}' is not available."
+            f"'_TradingCrewProxy' only supports the 'run' method. " f"Attribute '{name}' is not available."
         )
+
 
 trading_crew = _TradingCrewProxy()

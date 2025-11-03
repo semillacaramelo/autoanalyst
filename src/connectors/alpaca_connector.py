@@ -33,9 +33,7 @@ class AlpacaConnectionManager:
         # Safety check
         self.is_paper = "paper" in self.base_url.lower()
         if not self.is_paper and settings.dry_run:
-            logger.critical(
-                "DANGER: Live API URL detected but DRY_RUN=True. " "Forcing paper mode."
-            )
+            logger.critical("DANGER: Live API URL detected but DRY_RUN=True. " "Forcing paper mode.")
             self.base_url = "https://paper-api.alpaca.markets"
             self.is_paper = True
 
@@ -43,17 +41,13 @@ class AlpacaConnectionManager:
         self._data_client = None
         self._crypto_client = None
 
-        logger.info(
-            f"AlpacaManager initialized (mode: {'PAPER' if self.is_paper else 'LIVE'})"
-        )
+        logger.info(f"AlpacaManager initialized (mode: {'PAPER' if self.is_paper else 'LIVE'})")
 
     @property
     def trading_client(self) -> TradingClient:
         """Lazy-loaded trading client."""
         if not self._trading_client:
-            self._trading_client = TradingClient(
-                api_key=self.api_key, secret_key=self.secret_key, paper=self.is_paper
-            )
+            self._trading_client = TradingClient(api_key=self.api_key, secret_key=self.secret_key, paper=self.is_paper)
             logger.debug("Trading client initialized")
         return self._trading_client
 
@@ -61,9 +55,7 @@ class AlpacaConnectionManager:
     def data_client(self) -> StockHistoricalDataClient:
         """Lazy-loaded market data client."""
         if not self._data_client:
-            self._data_client = StockHistoricalDataClient(
-                api_key=self.api_key, secret_key=self.secret_key
-            )
+            self._data_client = StockHistoricalDataClient(api_key=self.api_key, secret_key=self.secret_key)
             logger.debug("Data client initialized")
         return self._data_client
 
@@ -71,9 +63,7 @@ class AlpacaConnectionManager:
     def crypto_client(self) -> CryptoHistoricalDataClient:
         """Lazy-loaded crypto data client."""
         if not self._crypto_client:
-            self._crypto_client = CryptoHistoricalDataClient(
-                api_key=self.api_key, secret_key=self.secret_key
-            )
+            self._crypto_client = CryptoHistoricalDataClient(api_key=self.api_key, secret_key=self.secret_key)
             logger.debug("Crypto client initialized")
         return self._crypto_client
 
@@ -138,10 +128,7 @@ class AlpacaConnectionManager:
             return self._fetch_crypto_bars(symbol, timeframe, start, end, limit)
         elif asset_class == "FOREX":
             # Forex not yet implemented, but placeholder for future
-            raise NotImplementedError(
-                "Forex data fetching not yet implemented. "
-                "Alpaca forex support is in beta."
-            )
+            raise NotImplementedError("Forex data fetching not yet implemented. " "Alpaca forex support is in beta.")
         else:  # US_EQUITY
             return self._fetch_stock_bars(symbol, timeframe, start, end, limit)
 
@@ -155,7 +142,7 @@ class AlpacaConnectionManager:
     ) -> pd.DataFrame:
         """
         Fetch stock (equity) historical bars.
-        
+
         (Original implementation from fetch_historical_bars)
         """
         try:
@@ -185,10 +172,7 @@ class AlpacaConnectionManager:
             # Calculate start/end times
             if start and end:
                 start_dt = pd.to_datetime(start)
-                if (
-                    start_dt.tzinfo is None
-                    or start_dt.tzinfo.utcoffset(start_dt) is None
-                ):
+                if start_dt.tzinfo is None or start_dt.tzinfo.utcoffset(start_dt) is None:
                     start_dt = start_dt.tz_localize("America/New_York")
                 else:
                     start_dt = start_dt.tz_convert("America/New_York")
@@ -221,9 +205,7 @@ class AlpacaConnectionManager:
             if isinstance(df.index, pd.MultiIndex):
                 df = df.reset_index(level=0, drop=True)
 
-            logger.info(
-                f"Fetched {len(df)} bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}"
-            )
+            logger.info(f"Fetched {len(df)} bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}")
             return df
 
         except Exception as e:
@@ -240,10 +222,10 @@ class AlpacaConnectionManager:
     ) -> pd.DataFrame:
         """
         Fetch cryptocurrency historical bars.
-        
+
         Uses CryptoHistoricalDataClient with crypto-specific requests.
         Crypto data is available 24/7 with no market hours restrictions.
-        
+
         Note: Alpaca crypto API requires symbols with slash (BTC/USD, not BTCUSD)
         """
         try:
@@ -259,7 +241,7 @@ class AlpacaConnectionManager:
                 else:
                     raise ValueError(f"Cannot normalize crypto symbol: {symbol}")
                 logger.debug(f"Normalized crypto symbol to: {symbol}")
-            
+
             # Parse timeframe (same logic as stocks)
             import re
 
@@ -318,18 +300,14 @@ class AlpacaConnectionManager:
             if isinstance(df.index, pd.MultiIndex):
                 df = df.reset_index(level=0, drop=True)
 
-            logger.info(
-                f"Fetched {len(df)} crypto bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}"
-            )
+            logger.info(f"Fetched {len(df)} crypto bars for {symbol} ({timeframe}) from {start_dt} to {end_dt}")
             return df
 
         except Exception as e:
             logger.error(f"Failed to fetch crypto bars: {e}")
             raise
 
-    def place_market_order(
-        self, symbol: str, qty: int, side: str  # "BUY" or "SELL"
-    ) -> dict:
+    def place_market_order(self, symbol: str, qty: int, side: str) -> dict:  # "BUY" or "SELL"
         """
         Place a market order.
 
@@ -408,9 +386,7 @@ class AlpacaConnectionManager:
                     "symbol": o.symbol,
                     "side": o.side.value,
                     "qty": int(o.qty),
-                    "filled_avg_price": (
-                        float(o.filled_avg_price) if o.filled_avg_price else None
-                    ),
+                    "filled_avg_price": (float(o.filled_avg_price) if o.filled_avg_price else None),
                     "status": o.status.value,
                     "submitted_at": o.submitted_at,
                     "filled_at": o.filled_at,

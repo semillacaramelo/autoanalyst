@@ -18,16 +18,19 @@ from src.tools.analysis_tools import technical_analysis
 from src.tools.execution_tools import execution_tools
 from src.crew.crew_context import crew_context
 
+
 # Tool definitions remain the same
 @tool("Fetch OHLCV Data")
 def fetch_ohlcv_data_tool(symbol: str, timeframe: str = "1Min", limit: int = 100) -> dict:
     """Fetch historical OHLCV data."""
     result = market_data_tools.fetch_ohlcv_data(symbol, timeframe, limit)
-    if result.get('success') and result.get('data') is not None:
-        crew_context.market_data = result['data']
+    if result.get("success") and result.get("data") is not None:
+        crew_context.market_data = result["data"]
     return result
 
+
 from src.strategies.registry import get_strategy
+
 
 @tool("Generate Trading Signal")
 def generate_signal_tool(strategy_name: str) -> dict:
@@ -52,18 +55,20 @@ def generate_signal_tool(strategy_name: str) -> dict:
 
 @tool("Check Portfolio Constraints")
 def check_constraints_tool() -> dict:
-	"""Check portfolio risk constraints."""
-	return execution_tools.check_portfolio_constraints()
+    """Check portfolio risk constraints."""
+    return execution_tools.check_portfolio_constraints()
+
 
 @tool("Calculate Position Size")
 def calculate_position_size_tool(signal: str, current_price: float, atr: float, account_equity: float) -> dict:
-	"""Calculate position size based on risk."""
-	return execution_tools.calculate_position_size(signal, current_price, atr, account_equity)
+    """Calculate position size based on risk."""
+    return execution_tools.calculate_position_size(signal, current_price, atr, account_equity)
+
 
 @tool("Place Market Order")
 def place_order_tool(symbol: str, qty: int, side: str) -> dict:
-	"""Place a market order."""
-	return execution_tools.place_order(symbol, qty, side)
+    """Place a market order."""
+    return execution_tools.place_order(symbol, qty, side)
 
 
 class TradingAgents:
@@ -77,7 +82,7 @@ class TradingAgents:
             tools=[fetch_ohlcv_data_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
 
     def signal_generator_agent(self, llm) -> Agent:
@@ -88,22 +93,18 @@ class TradingAgents:
             tools=[generate_signal_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
-
 
     def risk_manager_agent(self, llm) -> Agent:
         return Agent(
             role="Portfolio Risk Officer",
             goal="Enforce position sizing and portfolio-level risk constraints to protect capital",
             backstory="The guardian of capital, enforcing strict risk rules on every potential trade.",
-            tools=[
-                check_constraints_tool,
-                calculate_position_size_tool
-            ],
+            tools=[check_constraints_tool, calculate_position_size_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
 
     def execution_agent(self, llm) -> Agent:
@@ -114,5 +115,5 @@ class TradingAgents:
             tools=[place_order_tool],
             llm=llm,
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )

@@ -5,6 +5,7 @@ This file defines a class that creates and new_configs all tasks for the agents.
 
 from crewai import Task
 
+
 class TradingTasks:
     """A factory class for creating all trading-related tasks."""
 
@@ -19,7 +20,7 @@ class TradingTasks:
             
             Return the data result including validation status.""",
             expected_output="""A dictionary containing the success status, a pandas DataFrame with the OHLCV data, and metadata including validation results.""",
-            agent=agent
+            agent=agent,
         )
 
     def generate_signal_task(self, agent, context) -> Task:
@@ -32,7 +33,7 @@ class TradingTasks:
             """,
             expected_output="""A dictionary with the final validated signal ('BUY', 'SELL', or 'HOLD'), the confidence level, and detailed results from the strategy's execution.""",
             agent=agent,
-            context=context
+            context=context,
         )
 
     def assess_risk_task(self, agent, context) -> Task:
@@ -52,7 +53,7 @@ class TradingTasks:
             Provide a clear approval or rejection decision with reasoning.""",
             expected_output="""A dictionary indicating whether the trade is approved, the calculated position size (in shares), and the status of all risk checks.""",
             agent=agent,
-            context=context
+            context=context,
         )
 
     def execute_trade_task(self, agent, context) -> Task:
@@ -66,5 +67,5 @@ class TradingTasks:
             In DRY_RUN mode, simulate the order and log what would have been executed.""",
             expected_output="""A dictionary summarizing the execution status ('SUCCESS', 'SKIPPED', 'FAILED'), including the order ID (or a simulation notice) and trade details.""",
             agent=agent,
-            context=context
+            context=context,
         )

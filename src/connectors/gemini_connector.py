@@ -40,8 +40,7 @@ class KeyHealthTracker:
         self.keys = api_keys
         self.health_threshold = health_threshold
         self.key_health: Dict[str, Dict] = {
-            key: {"success": 0, "failure": 0, "last_used": 0, "backoff_until": 0}
-            for key in api_keys
+            key: {"success": 0, "failure": 0, "last_used": 0, "backoff_until": 0} for key in api_keys
         }
 
     def _calculate_health_score(self, key: str) -> float:
@@ -73,17 +72,14 @@ class KeyHealthTracker:
         available_keys = [
             key
             for key, health in self.key_health.items()
-            if now >= health["backoff_until"]
-            and self._calculate_health_score(key) >= self.health_threshold
+            if now >= health["backoff_until"] and self._calculate_health_score(key) >= self.health_threshold
         ]
 
         if not available_keys:
             return []
 
         # Sort by health score, descending
-        return sorted(
-            available_keys, key=lambda k: self._calculate_health_score(k), reverse=True
-        )
+        return sorted(available_keys, key=lambda k: self._calculate_health_score(k), reverse=True)
 
 
 class RateLimiter:
@@ -123,13 +119,9 @@ class GeminiConnectionManager:
 
         self.primary_models = settings.primary_llm_models
         self.fallback_models = settings.fallback_llm_models
-        self.key_health_tracker = KeyHealthTracker(
-            self.api_keys, settings.key_health_threshold
-        )
+        self.key_health_tracker = KeyHealthTracker(self.api_keys, settings.key_health_threshold)
         self.temperature = temperature
-        self.rate_limiter = RateLimiter(
-            rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd
-        )
+        self.rate_limiter = RateLimiter(rpm=settings.rate_limit_rpm, rpd=settings.rate_limit_rpd)
         self.request_count = 0
         # Thread lock for ensuring atomic rate limit checking and client creation during parallel execution.
         # Prevents race conditions when multiple trading crews run concurrently and attempt to access
@@ -173,26 +165,18 @@ class GeminiConnectionManager:
         """
         with self._lock:
             if ChatGoogleGenerativeAI is None:
-                raise RuntimeError(
-                    "langchain_google_genai not available — install dependency or mock in tests"
-                )
+                raise RuntimeError("langchain_google_genai not available — install dependency or mock in tests")
 
-            models_to_try = (
-                [model] if model else (self.primary_models + self.fallback_models)
-            )
+            models_to_try = [model] if model else (self.primary_models + self.fallback_models)
             last_exception = None
             MAX_CYCLES = 3
 
             for cycle_num in range(MAX_CYCLES):
-                logger.info(
-                    f"Starting connection attempt cycle {cycle_num + 1}/{MAX_CYCLES}"
-                )
+                logger.info(f"Starting connection attempt cycle {cycle_num + 1}/{MAX_CYCLES}")
                 available_keys = self.key_health_tracker.get_available_keys_sorted()
 
                 if not available_keys:
-                    logger.warning(
-                        "All API keys are in backoff or unhealthy. Waiting 10s..."
-                    )
+                    logger.warning("All API keys are in backoff or unhealthy. Waiting 10s...")
                     time.sleep(10)
                     continue
 
@@ -239,17 +223,13 @@ class GeminiConnectionManager:
                             # Otherwise, model might be unavailable, so try next model with same key.
                             continue
                         except Exception as e:
-                            logger.error(
-                                f"An unexpected error occurred: {e}", exc_info=True
-                            )
+                            logger.error(f"An unexpected error occurred: {e}", exc_info=True)
                             self.key_health_tracker.record_failure(api_key)
                             last_exception = e
                             # Break to try a new key on unexpected errors
                             break
 
-                logger.warning(
-                    f"Exhausted all available keys in cycle {cycle_num + 1}. Waiting 60s before retrying."
-                )
+                logger.warning(f"Exhausted all available keys in cycle {cycle_num + 1}. Waiting 60s before retrying.")
                 time.sleep(60)
 
             raise RuntimeError(

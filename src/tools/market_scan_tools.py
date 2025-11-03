@@ -27,9 +27,7 @@ class MarketScanTools:
         return SP_100_SYMBOLS
 
     @staticmethod
-    def get_universe_symbols(
-        market: Optional[str] = None, max_symbols: Optional[int] = None
-    ) -> List[str]:
+    def get_universe_symbols(market: Optional[str] = None, max_symbols: Optional[int] = None) -> List[str]:
         """
         Get trading universe symbols for a specific market.
 
@@ -47,23 +45,15 @@ class MarketScanTools:
             ['AAPL', 'MSFT', ...]
         """
         # Default to US_EQUITY if no market specified (backwards compatibility)
-        target_market = market or 'US_EQUITY'
+        target_market = market or "US_EQUITY"
 
-        logger.info(
-            f"Fetching universe symbols for market: {target_market}, "
-            f"max_symbols: {max_symbols or 'all'}"
-        )
+        logger.info(f"Fetching universe symbols for market: {target_market}, " f"max_symbols: {max_symbols or 'all'}")
 
-        return universe_manager.get_active_universe(
-            market=target_market, max_symbols=max_symbols
-        )
+        return universe_manager.get_active_universe(market=target_market, max_symbols=max_symbols)
 
     @staticmethod
     def fetch_universe_data(
-        symbols: List[str],
-        timeframe: str = "1Day",
-        limit: int = 100,
-        asset_class: Optional[str] = None
+        symbols: List[str], timeframe: str = "1Day", limit: int = 100, asset_class: Optional[str] = None
     ) -> Dict[str, pd.DataFrame]:
         """
         Fetch historical data for a universe of symbols using parallel execution.
@@ -107,27 +97,20 @@ class MarketScanTools:
                 # Auto-detect asset class if not specified
                 if asset_class is None:
                     classification = asset_classifier.classify(symbol)
-                    detected_class = classification['type']
+                    detected_class = classification["type"]
                 else:
                     detected_class = asset_class
 
                 # Fetch historical bars with asset class for proper routing
                 df = alpaca_manager.fetch_historical_bars(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    limit=limit,
-                    asset_class=detected_class
+                    symbol=symbol, timeframe=timeframe, limit=limit, asset_class=detected_class
                 )
-                
+
                 if df is not None and not df.empty:
-                    logger.debug(
-                        f"Fetched {len(df)} bars for {symbol} ({detected_class})"
-                    )
+                    logger.debug(f"Fetched {len(df)} bars for {symbol} ({detected_class})")
                     return (symbol, df)
                 else:
-                    logger.warning(
-                        f"No data returned for {symbol} ({detected_class})"
-                    )
+                    logger.warning(f"No data returned for {symbol} ({detected_class})")
                     return (symbol, None)
             except Exception as e:
                 logger.warning(f"Exception fetching data for {symbol}: {e}")
@@ -137,9 +120,7 @@ class MarketScanTools:
         # This provides optimal throughput without overwhelming the API or system resources.
         with ThreadPoolExecutor(max_workers=10) as executor:
             # Submit all fetch jobs to the executor
-            future_to_symbol = {
-                executor.submit(_fetch_one, symbol): symbol for symbol in symbols
-            }
+            future_to_symbol = {executor.submit(_fetch_one, symbol): symbol for symbol in symbols}
 
             # Process results as they complete (faster than waiting for all)
             for future in as_completed(future_to_symbol):
@@ -160,16 +141,12 @@ class MarketScanTools:
         for symbol, df in symbol_data.items():
             if len(df) > 14:
                 atr = TechnicalAnalysisTools.calculate_atr(df, 14)
-                atr_percentile = (
-                    (atr.iloc[-1] / atr.mean()) * 100 if atr.mean() > 0 else 0
-                )
+                atr_percentile = (atr.iloc[-1] / atr.mean()) * 100 if atr.mean() > 0 else 0
                 volatility_results.append(
                     {
                         "symbol": symbol,
                         "atr": atr.iloc[-1],
-                        "volatility_score": min(
-                            100, atr_percentile
-                        ),  # Cap score at 100
+                        "volatility_score": min(100, atr_percentile),  # Cap score at 100
                     }
                 )
         return volatility_results
@@ -201,16 +178,10 @@ class MarketScanTools:
                 score += 30
                 reasons.append("Strong Downtrend (Price < 20SMA < 50SMA)")
 
-            if (
-                macd_line.iloc[-1] > signal_line.iloc[-1]
-                and macd_line.iloc[-2] <= signal_line.iloc[-2]
-            ):
+            if macd_line.iloc[-1] > signal_line.iloc[-1] and macd_line.iloc[-2] <= signal_line.iloc[-2]:
                 score += 25
                 reasons.append("Bullish MACD Crossover")
-            elif (
-                macd_line.iloc[-1] < signal_line.iloc[-1]
-                and macd_line.iloc[-2] >= signal_line.iloc[-2]
-            ):
+            elif macd_line.iloc[-1] < signal_line.iloc[-1] and macd_line.iloc[-2] >= signal_line.iloc[-2]:
                 score += 25
                 reasons.append("Bearish MACD Crossover")
 
@@ -232,9 +203,7 @@ class MarketScanTools:
         return technical_results
 
     @staticmethod
-    def filter_by_liquidity(
-        symbol_data: Dict[str, pd.DataFrame], min_volume: int = 1_000_000
-    ) -> List[Dict]:
+    def filter_by_liquidity(symbol_data: Dict[str, pd.DataFrame], min_volume: int = 1_000_000) -> List[Dict]:
         """Filter symbols by their average trading volume."""
         liquidity_results = []
         for symbol, df in symbol_data.items():
@@ -245,9 +214,7 @@ class MarketScanTools:
             liquidity_results.append(
                 {
                     "symbol": symbol,
-                    "liquidity_score": min(
-                        100, (avg_volume / min_volume) * 100
-                    ),  # Score relative to minimum
+                    "liquidity_score": min(100, (avg_volume / min_volume) * 100),  # Score relative to minimum
                     "is_liquid": avg_volume >= min_volume,
                 }
             )

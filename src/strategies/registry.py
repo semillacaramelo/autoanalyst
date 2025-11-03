@@ -13,17 +13,18 @@ AVAILABLE_STRATEGIES: Dict[str, Type[TradingStrategy]] = {
     "bollinger": BollingerBandsReversalStrategy,
 }
 
+
 def get_strategy(name: str, asset_class: Optional[str] = None) -> TradingStrategy:
     """
     Factory function for strategy instantiation with asset-class awareness.
-    
+
     Args:
         name: Strategy name ('3ma', 'rsi_breakout', 'macd', 'bollinger')
         asset_class: Asset class ('US_EQUITY', 'CRYPTO', 'FOREX', or None for US_EQUITY)
-        
+
     Returns:
         Initialized strategy instance with asset-class-specific parameters
-        
+
     Raises:
         ValueError: If strategy name is not found
     """

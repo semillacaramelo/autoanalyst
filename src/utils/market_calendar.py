@@ -2,9 +2,11 @@
 Market Calendar
 Tracks global market hours to determine when the trading system should be active.
 """
+
 from datetime import datetime, time
 from typing import List
 import pytz
+
 
 class MarketCalendar:
     """Tracks global market hours."""
@@ -40,14 +42,18 @@ class MarketCalendar:
                 market_open_time = market["open"]
 
                 now_local = now.astimezone(tz)
-                today_open = now_local.replace(hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0)
+                today_open = now_local.replace(
+                    hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0
+                )
 
                 if now_local.time() < market_open_time:
                     next_opens.append(today_open)
                 else:
                     # It's already past opening time today, so check tomorrow
                     tomorrow = now_local + pytz.timedelta(days=1)
-                    tomorrow_open = tomorrow.replace(hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0)
+                    tomorrow_open = tomorrow.replace(
+                        hour=market_open_time.hour, minute=market_open_time.minute, second=0, microsecond=0
+                    )
                     next_opens.append(tomorrow_open)
 
         return min(next_opens) if next_opens else None

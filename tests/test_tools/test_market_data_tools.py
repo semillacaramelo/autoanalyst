@@ -3,6 +3,7 @@ import pandas as pd
 from src.tools.market_data_tools import MarketDataTools
 from datetime import datetime, timedelta
 
+
 class TestMarketDataTools(unittest.TestCase):
 
     def test_validate_data_completeness_ambiguous_truth_error(self):
@@ -16,10 +17,15 @@ class TestMarketDataTools(unittest.TestCase):
         timestamps = [
             datetime.now() - timedelta(minutes=3),
             datetime.now() - timedelta(minutes=2),
-            datetime.now() - timedelta(minutes=0), # 2 minute gap
+            datetime.now() - timedelta(minutes=0),  # 2 minute gap
         ]
-        data = {'open': [100, 101, 102], 'high': [102, 103, 104], 'low': [99, 100, 101],
-                'close': [101, 102, 103], 'volume': [1000, 1100, 1200]}
+        data = {
+            "open": [100, 101, 102],
+            "high": [102, 103, 104],
+            "low": [99, 100, 101],
+            "close": [101, 102, 103],
+            "volume": [1000, 1100, 1200],
+        }
         df = pd.DataFrame(data, index=pd.to_datetime(timestamps))
 
         # Act
@@ -28,8 +34,9 @@ class TestMarketDataTools(unittest.TestCase):
 
         # Assert
         # The validation should identify the time series gap.
-        self.assertFalse(result['is_valid'])
-        self.assertIn("Time series gaps detected: 1 gaps", result['issues'])
+        self.assertFalse(result["is_valid"])
+        self.assertIn("Time series gaps detected: 1 gaps", result["issues"])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
