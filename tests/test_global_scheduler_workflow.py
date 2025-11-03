@@ -45,7 +45,9 @@ class TestGlobalSchedulerEmergencyFunctions(unittest.TestCase):
     def test_emergency_close_positions_with_short_positions(self, mock_alpaca):
         """Test emergency close with short positions."""
         # Mock positions
-        mock_alpaca.get_positions.return_value = [{"symbol": "TSLA", "qty": "3", "side": "short"}]
+        mock_alpaca.get_positions.return_value = [
+            {"symbol": "TSLA", "qty": "3", "side": "short"}
+        ]
         mock_alpaca.place_market_order.return_value = {"success": True}
 
         # Execute
@@ -86,7 +88,9 @@ class TestGlobalSchedulerEmergencyFunctions(unittest.TestCase):
 
         current_time = datetime(2025, 11, 3, 12, 0, 0, tzinfo=pytz.utc)
 
-        interval = self.scheduler._calculate_next_interval("UNKNOWN_MARKET", current_time)
+        interval = self.scheduler._calculate_next_interval(
+            "UNKNOWN_MARKET", current_time
+        )
 
         # Should use fallback from settings (20 minutes = 1200 seconds)
         self.assertEqual(interval, 1200)
@@ -106,12 +110,21 @@ class TestGlobalSchedulerRunForever(unittest.TestCase):
     @patch("src.utils.global_scheduler.trading_orchestrator")
     @patch("src.utils.global_scheduler.StateManager")
     def test_run_forever_single_iteration(
-        self, mock_state_mgr_class, mock_orchestrator, mock_calendar_class, mock_rotation, mock_alpaca, mock_sleep
+        self,
+        mock_state_mgr_class,
+        mock_orchestrator,
+        mock_calendar_class,
+        mock_rotation,
+        mock_alpaca,
+        mock_sleep,
     ):
         """Test a single iteration of run_forever loop."""
         # Mock market rotation to select US_EQUITY
         mock_rotation.select_active_market.return_value = "US_EQUITY"
-        mock_rotation.get_market_statistics.return_value = {"rotation_count": 5, "last_rotation": "2025-11-03 10:00:00"}
+        mock_rotation.get_market_statistics.return_value = {
+            "rotation_count": 5,
+            "last_rotation": "2025-11-03 10:00:00",
+        }
 
         # Mock market calendar instance
         mock_calendar_inst = Mock()
@@ -128,7 +141,9 @@ class TestGlobalSchedulerRunForever(unittest.TestCase):
         mock_orchestrator.run_cycle.return_value = None
 
         # Mock alpaca positions
-        mock_alpaca.get_positions.return_value = [{"symbol": "SPY", "qty": "10", "unrealized_pl": 50.0}]
+        mock_alpaca.get_positions.return_value = [
+            {"symbol": "SPY", "qty": "10", "unrealized_pl": 50.0}
+        ]
 
         # Mock sleep to break loop after first iteration
         def sleep_side_effect(duration):
@@ -160,7 +175,9 @@ class TestGlobalSchedulerRunForever(unittest.TestCase):
 
         # Mock next market open time
         next_open_time = datetime(2025, 11, 4, 14, 30, 0, tzinfo=pytz.utc)
-        self.scheduler.market_calendar.next_market_open = Mock(return_value=next_open_time)
+        self.scheduler.market_calendar.next_market_open = Mock(
+            return_value=next_open_time
+        )
 
         # Mock sleep to break loop after first sleep call
         sleep_calls = []
@@ -193,10 +210,14 @@ class TestGlobalSchedulerRunForever(unittest.TestCase):
         mock_rotation.select_active_market.return_value = "US_EQUITY"
 
         # Mock market calendar on instance
-        self.scheduler.market_calendar.get_active_markets = Mock(return_value=["US_EQUITY"])
+        self.scheduler.market_calendar.get_active_markets = Mock(
+            return_value=["US_EQUITY"]
+        )
 
         # Mock orchestrator to raise critical error
-        self.scheduler.orchestrator.run_cycle = Mock(side_effect=Exception("Critical trading error"))
+        self.scheduler.orchestrator.run_cycle = Mock(
+            side_effect=Exception("Critical trading error")
+        )
 
         # Mock emergency close
         self.scheduler._emergency_close_positions = Mock()
@@ -271,16 +292,19 @@ class TestGlobalSchedulerStateManagement(unittest.TestCase):
     @patch("src.utils.global_scheduler.time.sleep")
     @patch("src.utils.global_scheduler.alpaca_manager")
     @patch("src.utils.global_scheduler.market_rotation_strategy")
-    def test_state_tracking_after_cycle(
-        self, mock_rotation, mock_alpaca, mock_sleep
-    ):
+    def test_state_tracking_after_cycle(self, mock_rotation, mock_alpaca, mock_sleep):
         """Test that state is properly tracked after each cycle."""
         # Mock dependencies
         mock_rotation.select_active_market.return_value = "CRYPTO"
-        mock_rotation.get_market_statistics.return_value = {"rotation_count": 10, "last_rotation": "2025-11-03 12:00:00"}
+        mock_rotation.get_market_statistics.return_value = {
+            "rotation_count": 10,
+            "last_rotation": "2025-11-03 12:00:00",
+        }
 
         # Mock market calendar and orchestrator on instance
-        self.scheduler.market_calendar.get_active_markets = Mock(return_value=["CRYPTO"])
+        self.scheduler.market_calendar.get_active_markets = Mock(
+            return_value=["CRYPTO"]
+        )
         self.scheduler.orchestrator.run_cycle = Mock(return_value=None)
 
         # Mock positions with P&L
@@ -295,7 +319,9 @@ class TestGlobalSchedulerStateManagement(unittest.TestCase):
         def save_state_side_effect(state):
             saved_states.append(state.copy())
 
-        self.scheduler.state_manager.save_state = Mock(side_effect=save_state_side_effect)
+        self.scheduler.state_manager.save_state = Mock(
+            side_effect=save_state_side_effect
+        )
 
         # Mock sleep to break loop
         def sleep_side_effect(duration):
@@ -330,10 +356,15 @@ class TestGlobalSchedulerStateManagement(unittest.TestCase):
         """Test that state update handles position fetch errors gracefully."""
         # Mock dependencies
         mock_rotation.select_active_market.return_value = "US_EQUITY"
-        mock_rotation.get_market_statistics.return_value = {"rotation_count": 1, "last_rotation": None}
+        mock_rotation.get_market_statistics.return_value = {
+            "rotation_count": 1,
+            "last_rotation": None,
+        }
 
         # Mock market calendar and orchestrator on instance
-        self.scheduler.market_calendar.get_active_markets = Mock(return_value=["US_EQUITY"])
+        self.scheduler.market_calendar.get_active_markets = Mock(
+            return_value=["US_EQUITY"]
+        )
         self.scheduler.orchestrator.run_cycle = Mock(return_value=None)
 
         # Mock positions fetch to raise error
@@ -345,7 +376,9 @@ class TestGlobalSchedulerStateManagement(unittest.TestCase):
         def save_state_side_effect(state):
             saved_states.append(state.copy())
 
-        self.scheduler.state_manager.save_state = Mock(side_effect=save_state_side_effect)
+        self.scheduler.state_manager.save_state = Mock(
+            side_effect=save_state_side_effect
+        )
 
         # Mock sleep to break loop
         def sleep_side_effect(duration):

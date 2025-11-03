@@ -9,7 +9,12 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 import threading
 
-from src.crew.trading_crew import TradingCrew, get_trading_crew, _TradingCrewProxy, trading_crew
+from src.crew.trading_crew import (
+    TradingCrew,
+    get_trading_crew,
+    _TradingCrewProxy,
+    trading_crew,
+)
 
 
 class TestTradingCrew(unittest.TestCase):
@@ -20,10 +25,20 @@ class TestTradingCrew(unittest.TestCase):
     @patch("src.crew.trading_crew.TradingTasks")
     @patch("src.crew.trading_crew.Crew")
     @patch("src.crew.trading_crew.LLM")
-    def test_initialization_success(self, mock_llm_class, mock_crew_class, mock_tasks_class, mock_agents_class, mock_gemini_manager):
+    def test_initialization_success(
+        self,
+        mock_llm_class,
+        mock_crew_class,
+        mock_tasks_class,
+        mock_agents_class,
+        mock_gemini_manager,
+    ):
         """Test successful TradingCrew initialization."""
         # Mock Gemini manager
-        mock_gemini_manager.get_llm_for_crewai.return_value = ("gemini/flash", "test-api-key")
+        mock_gemini_manager.get_llm_for_crewai.return_value = (
+            "gemini/flash",
+            "test-api-key",
+        )
 
         # Mock LLM
         mock_llm_instance = Mock()
@@ -55,7 +70,9 @@ class TestTradingCrew(unittest.TestCase):
         # Verify initialization
         self.assertIsNotNone(crew.crew)
         mock_gemini_manager.get_llm_for_crewai.assert_called_once()
-        mock_llm_class.assert_called_once_with(model="gemini/flash", api_key="test-api-key")
+        mock_llm_class.assert_called_once_with(
+            model="gemini/flash", api_key="test-api-key"
+        )
 
     def test_initialization_skip_init(self):
         """Test TradingCrew initialization with skip_init=True."""
@@ -70,7 +87,13 @@ class TestTradingCrew(unittest.TestCase):
     @patch("src.crew.trading_crew.LLM")
     @patch("src.crew.trading_crew.settings")
     def test_run_success(
-        self, mock_settings, mock_llm_class, mock_crew_class, mock_tasks_class, mock_agents_class, mock_gemini_manager
+        self,
+        mock_settings,
+        mock_llm_class,
+        mock_crew_class,
+        mock_tasks_class,
+        mock_agents_class,
+        mock_gemini_manager,
     ):
         """Test successful crew execution."""
         # Mock settings
@@ -81,7 +104,10 @@ class TestTradingCrew(unittest.TestCase):
         mock_settings.dry_run = True
 
         # Mock Gemini manager
-        mock_gemini_manager.get_llm_for_crewai.return_value = ("gemini/flash", "test-api-key")
+        mock_gemini_manager.get_llm_for_crewai.return_value = (
+            "gemini/flash",
+            "test-api-key",
+        )
 
         # Mock LLM
         mock_llm_instance = Mock()
@@ -135,7 +161,13 @@ class TestTradingCrew(unittest.TestCase):
     @patch("src.crew.trading_crew.LLM")
     @patch("src.crew.trading_crew.settings")
     def test_run_with_default_symbol(
-        self, mock_settings, mock_llm_class, mock_crew_class, mock_tasks_class, mock_agents_class, mock_gemini_manager
+        self,
+        mock_settings,
+        mock_llm_class,
+        mock_crew_class,
+        mock_tasks_class,
+        mock_agents_class,
+        mock_gemini_manager,
     ):
         """Test crew execution with default symbol from settings."""
         # Mock settings
@@ -146,7 +178,10 @@ class TestTradingCrew(unittest.TestCase):
         mock_settings.dry_run = True
 
         # Mock Gemini manager
-        mock_gemini_manager.get_llm_for_crewai.return_value = ("gemini/flash", "test-api-key")
+        mock_gemini_manager.get_llm_for_crewai.return_value = (
+            "gemini/flash",
+            "test-api-key",
+        )
 
         # Mock LLM
         mock_llm_instance = Mock()
@@ -188,10 +223,20 @@ class TestTradingCrew(unittest.TestCase):
     @patch("src.crew.trading_crew.TradingTasks")
     @patch("src.crew.trading_crew.Crew")
     @patch("src.crew.trading_crew.LLM")
-    def test_run_failure(self, mock_llm_class, mock_crew_class, mock_tasks_class, mock_agents_class, mock_gemini_manager):
+    def test_run_failure(
+        self,
+        mock_llm_class,
+        mock_crew_class,
+        mock_tasks_class,
+        mock_agents_class,
+        mock_gemini_manager,
+    ):
         """Test crew execution with error."""
         # Mock Gemini manager
-        mock_gemini_manager.get_llm_for_crewai.return_value = ("gemini/flash", "test-api-key")
+        mock_gemini_manager.get_llm_for_crewai.return_value = (
+            "gemini/flash",
+            "test-api-key",
+        )
 
         # Mock LLM
         mock_llm_instance = Mock()

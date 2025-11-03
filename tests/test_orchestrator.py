@@ -128,7 +128,12 @@ class TestTradingOrchestrator(unittest.TestCase):
         """Test logging summary with mixed success and failure results."""
         results = [
             {"success": True, "symbol": "SPY", "strategy": "3ma", "result": "HOLD"},
-            {"success": False, "symbol": "AAPL", "strategy": "rsi", "error": "Rate limit"},
+            {
+                "success": False,
+                "symbol": "AAPL",
+                "strategy": "rsi",
+                "error": "Rate limit",
+            },
             {"success": True, "symbol": "QQQ", "strategy": "macd", "result": "BUY"},
         ]
 
@@ -148,7 +153,12 @@ class TestTradingOrchestrator(unittest.TestCase):
     def test_log_cycle_summary_all_failures(self):
         """Test logging summary with all failed results."""
         results = [
-            {"success": False, "symbol": "SPY", "strategy": "3ma", "error": "API error"},
+            {
+                "success": False,
+                "symbol": "SPY",
+                "strategy": "3ma",
+                "error": "API error",
+            },
             {"success": False, "symbol": "QQQ", "strategy": "macd", "error": "Timeout"},
         ]
 
@@ -166,7 +176,9 @@ class TestTradingOrchestrator(unittest.TestCase):
     def test_run_cycle_no_assets(self, mock_run_crew):
         """Test run_cycle when scanner returns no assets."""
         # Mock the scanner instance
-        with patch.object(self.orchestrator.market_scanner, 'run', return_value={"top_assets": []}):
+        with patch.object(
+            self.orchestrator.market_scanner, "run", return_value={"top_assets": []}
+        ):
             # Execute
             self.orchestrator.run_cycle()
 
@@ -198,7 +210,9 @@ class TestTradingOrchestrator(unittest.TestCase):
         }
 
         # Mock the scanner instance
-        with patch.object(self.orchestrator.market_scanner, 'run', return_value=scanner_results) as mock_scanner_run:
+        with patch.object(
+            self.orchestrator.market_scanner, "run", return_value=scanner_results
+        ) as mock_scanner_run:
             # Execute
             self.orchestrator.run_cycle()
 
@@ -222,10 +236,17 @@ class TestTradingOrchestrator(unittest.TestCase):
         }
 
         # Mock crew execution
-        mock_run_crew.return_value = {"success": True, "symbol": "SPY", "strategy": "3ma", "result": "HOLD"}
+        mock_run_crew.return_value = {
+            "success": True,
+            "symbol": "SPY",
+            "strategy": "3ma",
+            "result": "HOLD",
+        }
 
         # Mock the scanner instance
-        with patch.object(self.orchestrator.market_scanner, 'run', return_value=scanner_results) as mock_scanner_run:
+        with patch.object(
+            self.orchestrator.market_scanner, "run", return_value=scanner_results
+        ) as mock_scanner_run:
             # Execute
             self.orchestrator.run_cycle()
 
@@ -239,16 +260,28 @@ class TestTradingOrchestrator(unittest.TestCase):
         # Mock scanner results with 5 assets
         scanner_results = {
             "top_assets": [
-                {"symbol": f"ASSET{i}", "priority": 5 - i, "recommended_strategies": ["3ma"], "reason": f"Reason {i}"}
+                {
+                    "symbol": f"ASSET{i}",
+                    "priority": 5 - i,
+                    "recommended_strategies": ["3ma"],
+                    "reason": f"Reason {i}",
+                }
                 for i in range(5)
             ]
         }
 
         # Mock crew execution
-        mock_run_crew.return_value = {"success": True, "symbol": "ASSET0", "strategy": "3ma", "result": "HOLD"}
+        mock_run_crew.return_value = {
+            "success": True,
+            "symbol": "ASSET0",
+            "strategy": "3ma",
+            "result": "HOLD",
+        }
 
         # Mock the scanner instance
-        with patch.object(self.orchestrator.market_scanner, 'run', return_value=scanner_results) as mock_scanner_run:
+        with patch.object(
+            self.orchestrator.market_scanner, "run", return_value=scanner_results
+        ) as mock_scanner_run:
             # Execute
             self.orchestrator.run_cycle()
 
