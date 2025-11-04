@@ -56,6 +56,8 @@ from src.connectors.gemini_connector import gemini_manager
 from src.utils.backtester_v2 import BacktesterV2
 from src.utils.global_scheduler import AutoTradingScheduler
 from src.utils.logger import setup_logging
+from src.utils.state_manager import StateManager
+import pytz
 
 console = Console()
 
@@ -168,16 +170,13 @@ def run_single_crew(symbol, strategy, timeframe, limit):
     config_table.add_row("Strategy", strategy)
     config_table.add_row("Timeframe", timeframe)
     config_table.add_row("Bars", str(limit))
-    config_table.add_row("Mode", "DRY RUN" if settings.dry_run else "LIVE TRADING")
+    config_table.add_row("Mode", "DRY RUN" if settings.dry_run else "PAPER TRADING")
     console.print(config_table)
 
-    # Safety check for live trading
+    # Note: No confirmation needed for paper trading - it uses simulated money
     if not settings.dry_run:
-        console.print("\n[bold red]⚠️  WARNING: LIVE TRADING MODE[/bold red]")
-        console.print("[yellow]Real trades will be placed with real money![/yellow]")
-        if not click.confirm("Are you sure you want to execute live trades?"):
-            console.print("[yellow]Cancelled by user[/yellow]")
-            return
+        console.print("\n[bold green]📊 PAPER TRADING MODE[/bold green]")
+        console.print("[cyan]Trades will be executed with Alpaca paper account (simulated funds)[/cyan]")
 
     try:
         # Execute the trading crew
@@ -208,48 +207,85 @@ def run_single_crew(symbol, strategy, timeframe, limit):
 @cli.command()
 def scan():
     """
-    Run the market scanner crew to find trading opportunities.
+    Run the intelligent market scanner to find trading opportunities.
     
-    The market scanner analyzes the S&P 100 constituents across multiple dimensions:
-    - Volatility analysis: Identifies stocks with optimal volatility
-    - Technical setup: Analyzes technical indicators and patterns
-    - Liquidity filter: Ensures adequate daily trading volume (>1M shares)
-    - Chief analyst: Synthesizes results and recommends top opportunities
+    The market scanner automatically:
+    - Detects the best active market (US Equity during market hours, Crypto 24/7)
+    - Analyzes market-appropriate assets (S&P 100, crypto pairs, or forex)
+    - Uses 4 AI agents to evaluate opportunities:
+      * Volatility Analyzer: Identifies optimal price movement
+      * Technical Analyst: Evaluates indicators and patterns
+      * Liquidity Filter: Ensures tradeable volume
+      * Chief Analyst: Synthesizes and ranks top 5 opportunities
     
-    Output: JSON with top 5 assets ranked by priority, including:
-    - Symbol and priority score
-    - Individual scores (volatility, technical, liquidity)
-    - Recommended trading strategies
-    - Reasoning for the recommendation
+    Output: Top 5 assets with:
+    - Priority ranking
+    - Performance scores (volatility, technical, liquidity)
+    - Recommended strategies for each asset
+    - AI reasoning for recommendations
     
-    Note: This command can take several minutes to complete as it analyzes
-    100+ stocks with multiple AI agents.
+    Market Selection:
+    - US Equity hours (9:30am-4pm ET): Scans S&P 100 stocks
+    - After hours / weekends: Scans cryptocurrency pairs
+    - Auto-detects best market based on current time
+    
+    Note: Scanning takes 1-3 minutes depending on market size.
     
     Example:
         python scripts/run_crew.py scan
     """
     console.print(Panel.fit(
-        "[bold cyan]Market Scanner Crew[/bold cyan]",
+        "[bold cyan]🔍 Intelligent Market Scanner[/bold cyan]\\n"
+        "[dim]Auto-detecting optimal market and opportunities...[/dim]",
         border_style="cyan"
     ))
-    console.print("\n[cyan]Scanning the S&P 100 for trading opportunities...[/cyan]\n")
+    
+    # Show which market will be scanned
+    from src.utils.market_calendar import MarketCalendar
+    market_calendar = MarketCalendar()
+    active_markets = market_calendar.get_active_markets(
+        datetime.now(pytz.utc), ['US_EQUITY', 'CRYPTO']
+    )
+    
+    if 'US_EQUITY' in active_markets:
+        scan_market = 'US_EQUITY'
+        asset_type = 'S&P 100 stocks'
+    else:
+        scan_market = 'CRYPTO'
+        asset_type = 'cryptocurrency pairs'
+    
+    console.print(f"\\n[cyan]→ Selected Market:[/cyan] [bold]{scan_market}[/bold]")
+    console.print(f"[cyan]→ Analyzing:[/cyan] {asset_type}")
+    console.print(f"[cyan]→ Agents:[/cyan] 4 AI agents (Volatility, Technical, Liquidity, Chief)\\n")
 
     try:
+        console.print("[yellow]⚙️  Running scanner... (this may take 1-3 minutes)[/yellow]\\n")
         raw_result = market_scanner_crew.run()
         json_string = raw_result.strip().removeprefix("```json").removesuffix("```")
         scan_data = json.loads(json_string)
 
-        console.print(Panel.fit("[bold green]✓ Market scan completed successfully![/bold green]", border_style="green"))
-        console.print("\n[yellow]Scan Results:[/yellow]")
-        syntax = Syntax(json.dumps(scan_data, indent=2), "json", theme="solarized-dark", line_numbers=True)
+        console.print(Panel.fit("[bold green]✓ Market scan completed![/bold green]", border_style="green"))
+        console.print("\\n[bold]📊 Top Trading Opportunities:[/bold]\\n")
+        
+        # Pretty print the results
+        syntax = Syntax(json.dumps(scan_data, indent=2), "json", theme="monokai", line_numbers=False)
         console.print(syntax)
+        
+        # Show quick summary
+        if 'top_assets' in scan_data and scan_data['top_assets']:
+            console.print("\\n[bold cyan]Quick Summary:[/bold cyan]")
+            for i, asset in enumerate(scan_data['top_assets'][:3], 1):
+                symbol = asset.get('symbol', 'N/A')
+                strategies = ', '.join(asset.get('recommended_strategies', []))
+                console.print(f"  {i}. [bold]{symbol}[/bold] - Strategies: {strategies}")
 
     except json.JSONDecodeError:
         console.print(Panel.fit("[bold red]✗ Failed to parse scanner output[/bold red]", border_style="red"))
-        console.print("\n[yellow]Raw Output:[/yellow]")
+        console.print("\\n[yellow]Raw Output:[/yellow]")
         console.print(raw_result)
     except Exception as e:
-        console.print(Panel.fit(f"[bold red]✗ Unexpected error during scan[/bold red]\n[dim]{str(e)}[/dim]", border_style="red"))
+        console.print(Panel.fit(f"[bold red]✗ Unexpected error during scan[/bold red]\\n[dim]{str(e)}[/dim]", border_style="red"))
+        console.print("\\n[yellow]Tip:[/yellow] Check that the market is open or try again in a few moments.")
 
 @cli.command()
 @click.option('--detailed', is_flag=True, help='Show detailed status including API key health.')
@@ -419,43 +455,75 @@ def compare(strategies, symbol, start, end):
 @cli.command()
 def autonomous():
     """
-    Launch the system in 24/7 autonomous trading mode.
+    Launch the system in fully autonomous 24/7 trading mode.
     
     In autonomous mode, the system:
-    - Continuously monitors the market according to market calendar
-    - Automatically runs market scans during trading hours
-    - Executes trades based on crew recommendations
-    - Manages open positions and risk limits
-    - Automatically pauses during market closures
-    - Respects daily trade limits and loss limits
+    - Continuously monitors markets 24/7 (US Equity, Crypto, Forex)
+    - Automatically selects best market based on hours and performance
+    - Runs market scans at adaptive intervals (5-30 min based on activity)
+    - Executes trades based on AI agent recommendations
+    - Manages positions and enforces risk limits automatically
+    - Rotates between markets intelligently
     
-    The scheduler follows the US market calendar:
-    - Active: Monday-Friday, 9:30 AM - 4:00 PM ET
-    - Closed: Weekends and US market holidays
+    Adaptive Scan Intervals:
+    - US Equity (market hours): Every 5 minutes (peak liquidity)
+    - Crypto (peak 9am-11pm UTC): Every 15 minutes
+    - Crypto (off-peak): Every 30 minutes
+    - Forex: Every 10 minutes
     
-    Safety features:
-    - DRY_RUN mode by default (set in .env)
+    Safety Features (Always Active):
+    - Paper trading mode (Alpaca paper account)
     - Daily loss limits enforced
     - Maximum position limits enforced
-    - Automatic error recovery with circuit breakers
+    - Position size limits (2% risk per trade)
+    - Automatic error recovery
     
-    To enable:
-        1. Set AUTONOMOUS_MODE_ENABLED=true in .env
-        2. Configure MAX_DAILY_TRADES and other limits
-        3. Test thoroughly in DRY_RUN mode first
-        4. Set DRY_RUN=false only when ready for live trading
+    User Control:
+    - Press Ctrl+C at any time to stop gracefully
+    - No confirmations required - fully autonomous
+    
+    Configuration (.env):
+    - DRY_RUN=true: Simulate orders (no API calls)
+    - DRY_RUN=false: Execute on paper account (recommended)
+    - Set MAX_DAILY_TRADES, DAILY_LOSS_LIMIT in .env
     
     Example:
         python scripts/run_crew.py autonomous
         
-    Press Ctrl+C to stop autonomous mode.
+    [Press Ctrl+C to stop]
     """
-    console.print(Panel.fit("[bold cyan]Entering 24/7 Autonomous Trading Mode[/bold cyan]", border_style="cyan"))
+    console.print(Panel.fit(
+        "[bold cyan]🤖 Launching Fully Autonomous 24/7 Trading Mode[/bold cyan]\\n\\n"
+        "[green]✓[/green] Multi-market support (US Equity, Crypto, Forex)\\n"
+        "[green]✓[/green] Intelligent market rotation\\n"
+        "[green]✓[/green] Adaptive scan intervals (5-30 min)\\n"
+        "[green]✓[/green] Paper trading with Alpaca\\n"
+        "[green]✓[/green] Risk management enforced\\n\\n"
+        "[dim]Press Ctrl+C to stop at any time[/dim]",
+        border_style="cyan"
+    ))
+    
+    # Show current configuration
+    mode = "DRY RUN (simulated)" if settings.dry_run else "PAPER TRADING (Alpaca paper account)"
+    console.print(f"\\n[bold]Mode:[/bold] [cyan]{mode}[/cyan]")
+    console.print(f"[bold]Max Daily Trades:[/bold] {settings.max_daily_trades}")
+    console.print(f"[bold]Daily Loss Limit:[/bold] {settings.daily_loss_limit * 100}%")
+    console.print(f"[bold]Max Risk Per Trade:[/bold] {settings.max_risk_per_trade * 100}%\\n")
+    
     if not settings.autonomous_mode_enabled:
-        console.print("[yellow]Warning: Autonomous mode is not enabled in settings. Running for one cycle.[/yellow]")
-
-    scheduler = AutoTradingScheduler()
-    scheduler.run_forever()
+        console.print("[yellow]Note: AUTONOMOUS_MODE_ENABLED=false in .env. Running unlimited cycles for testing.[/yellow]\\n")
+    
+    console.print("[bold green]🚀 System starting...[/bold green] (monitoring markets 24/7)\\n")
+    
+    try:
+        scheduler = AutoTradingScheduler()
+        scheduler.run_forever()
+    except KeyboardInterrupt:
+        console.print("\\n\\n[yellow]Shutdown signal received. Stopping gracefully...[/yellow]")
+        console.print("[green]✓ Autonomous mode stopped successfully.[/green]")
+    except Exception as e:
+        console.print(f"\\n[bold red]Error:[/bold red] {str(e)}")
+        console.print("[yellow]Check logs/trading_crew_*.log for details[/yellow]")
 
 def get_status_panel() -> Panel:
     """Returns a Panel with the current system status."""
@@ -481,7 +549,7 @@ def get_status_panel() -> Panel:
     except Exception:
         gemini_status = "[red]Connection Failed[/red]"
 
-    trading_mode = "[bold yellow]DRY RUN[/bold yellow]" if settings.dry_run else "[bold red]LIVE TRADING[/bold red]"
+    trading_mode = "[bold yellow]DRY RUN (Simulated)[/bold yellow]" if settings.dry_run else "[bold green]PAPER TRADING (Alpaca Paper)[/bold green]"
 
     table.add_row("Alpaca API:", alpaca_status)
     table.add_row("Gemini API:", gemini_status)
@@ -500,16 +568,74 @@ def get_positions_panel() -> Panel:
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Symbol", style="cyan")
         table.add_column("Qty", justify="right")
+        table.add_column("Entry", justify="right")
+        table.add_column("Current", justify="right")
         table.add_column("P&L", justify="right")
 
         for pos in positions:
             pl = pos.get('unrealized_pl', 0.0)
-            pl_str = f"[green]${pl:,.2f}[/green]" if pl >= 0 else f"[red]${pl:,.2f}[/red]"
-            table.add_row(pos['symbol'], str(pos['qty']), pl_str)
+            pl_str = f"[green]+${pl:,.2f}[/green]" if pl >= 0 else f"[red]${pl:,.2f}[/red]"
+            entry = f"${float(pos.get('avg_entry_price', 0)):,.2f}"
+            current = f"${float(pos.get('current_price', 0)):,.2f}"
+            table.add_row(pos['symbol'], str(pos['qty']), entry, current, pl_str)
 
         return Panel(table, title="Open Positions", border_style="yellow")
     except Exception as e:
         return Panel(f"[red]Error fetching positions: {e}[/red]", title="Open Positions", border_style="red")
+
+
+def get_recent_orders_panel() -> Panel:
+    """Returns a Panel with recent orders."""
+    try:
+        from datetime import timedelta
+        orders = alpaca_manager.alpaca_client.get_orders(
+            status='all',
+            limit=10,
+            after=(datetime.now(pytz.utc) - timedelta(days=1)).isoformat()
+        )
+        
+        if not orders:
+            return Panel("[dim]No recent orders (last 24h)[/dim]", title="Recent Orders", border_style="blue")
+        
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Symbol", style="cyan")
+        table.add_column("Side", justify="center")
+        table.add_column("Qty", justify="right")
+        table.add_column("Status", justify="center")
+        
+        for order in orders[:5]:  # Show only last 5
+            side_color = "green" if order.side == 'buy' else "red"
+            status_color = "green" if order.status == 'filled' else "yellow" if order.status == 'pending_new' else "dim"
+            table.add_row(
+                order.symbol,
+                f"[{side_color}]{order.side.upper()}[/{side_color}]",
+                str(order.qty),
+                f"[{status_color}]{order.status}[/{status_color}]"
+            )
+        
+        return Panel(table, title="Recent Orders (Last 24h)", border_style="blue")
+    except Exception as e:
+        return Panel(f"[red]Error fetching orders: {e}[/red]", title="Recent Orders", border_style="red")
+
+
+def get_active_strategies_panel() -> Panel:
+    """Returns a Panel with currently active strategies."""
+    try:
+        # Read from state manager to show active strategies
+        state_mgr = StateManager()
+        state = state_mgr.load_state()
+        
+        strategies_used = state.get('strategies_used', ['3ma', 'rsi_breakout', 'macd', 'bollinger_bands_reversal'])
+        mode = "[bold yellow]DRY RUN[/bold yellow]" if settings.dry_run else "[bold green]PAPER TRADING[/bold green]"
+        
+        content = f"Mode: {mode}\n\n"
+        content += "Active Strategies:\n"
+        for strat in strategies_used:
+            content += f"  • {strat}\n"
+        
+        return Panel(content, title="Configuration", border_style="cyan")
+    except Exception as e:
+        return Panel(f"[red]Error: {e}[/red]", title="Configuration", border_style="red")
 
 
 def generate_dashboard() -> Layout:
@@ -519,12 +645,16 @@ def generate_dashboard() -> Layout:
     layout.split(
         Layout(name="header", size=3),
         Layout(ratio=1, name="main"),
-        Layout(size=10, name="footer"),
+        Layout(size=8, name="footer"),
     )
 
-    layout["main"].split_row(Layout(name="side"), Layout(name="body", ratio=2))
-    layout["side"].split(Layout(name="status"), Layout(name="positions"))
-    layout["footer"].update(Panel("[dim]Logs will be displayed here in a future enhancement...[/dim]", title="Logs", border_style="blue"))
+    layout["main"].split_row(
+        Layout(name="left", ratio=1),
+        Layout(name="right", ratio=1)
+    )
+    layout["left"].split(Layout(name="status"), Layout(name="strategies"))
+    layout["right"].split(Layout(name="positions"), Layout(name="orders"))
+    
     return layout
 
 
@@ -556,22 +686,28 @@ def interactive():
     """
     layout = generate_dashboard()
 
+    # Initial render
     layout["header"].update(
-        Panel(f"[bold green]Talos Algo AI - Interactive Dashboard[/bold green]\nLast updated: {datetime.now().ctime()}", border_style="cyan")
+        Panel(f"[bold green]🤖 AutoAnalyst - Live Trading Dashboard[/bold green]\n[dim]Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Press Ctrl+C to exit[/dim]", border_style="cyan")
     )
-    layout["body"].update(Panel("Welcome! System data will refresh every 5 seconds. Press Ctrl+C to exit.", title="Activity", border_style="blue"))
+    layout["status"].update(get_status_panel())
+    layout["strategies"].update(get_active_strategies_panel())
+    layout["positions"].update(get_positions_panel())
+    layout["orders"].update(get_recent_orders_panel())
 
-    with Live(layout, screen=True, redirect_stderr=False, refresh_per_second=4) as live:
+    with Live(layout, screen=True, redirect_stderr=False, refresh_per_second=1) as live:
         try:
             while True:
-                time.sleep(5)
+                time.sleep(3)  # Refresh every 3 seconds
                 layout["header"].update(
-                    Panel(f"[bold green]Talos Algo AI - Interactive Dashboard[/bold green]\nLast updated: {datetime.now().ctime()}", border_style="cyan")
+                    Panel(f"[bold green]🤖 AutoAnalyst - Live Trading Dashboard[/bold green]\n[dim]Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Press Ctrl+C to exit[/dim]", border_style="cyan")
                 )
                 layout["status"].update(get_status_panel())
+                layout["strategies"].update(get_active_strategies_panel())
                 layout["positions"].update(get_positions_panel())
+                layout["orders"].update(get_recent_orders_panel())
         except KeyboardInterrupt:
-            console.print("\n[yellow]Dashboard stopped by user. Exiting.[/yellow]")
+            console.print("\n[yellow]Dashboard stopped by user.[/yellow]")
 
 
 @cli.command()
