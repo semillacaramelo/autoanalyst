@@ -128,7 +128,7 @@ class UniverseManager:
         
         Uses Alpaca Trading API to get all available crypto assets.
         Filters by:
-        - AssetClass.CRYPTO
+        - AssetClass.CRYPTO (skips crypto_perp and other new classes)
         - AssetStatus.ACTIVE
         - Tradable flag
         - Exclusion list
@@ -139,27 +139,57 @@ class UniverseManager:
         """
         try:
             # Get all assets from Alpaca Trading API
-            # Note: Alpaca may return new asset classes (crypto_perp) not in SDK enum
-            # We use try-except to handle validation errors gracefully
+            # Note: Alpaca may return new asset classes (crypto_perp, crypto_perp_u) not in SDK enum
+            # We handle this by catching validation errors and filtering raw data
             try:
                 all_assets = alpaca_manager.trading_client.get_all_assets()
+                
+                # Filter for active, tradable crypto (standard spot pairs)
+                crypto_assets = [
+                    asset for asset in all_assets
+                    if (
+                        asset.asset_class == AssetClass.CRYPTO and
+                        asset.status == AssetStatus.ACTIVE and
+                        asset.tradable and
+                        asset.symbol not in filters.get("exclude", [])
+                    )
+                ]
+                
             except Exception as validation_error:
+                # Alpaca API returned asset classes not in SDK enum (e.g., crypto_perp)
+                # Fall back to manual filtering of raw API response
                 logger.warning(
                     f"Alpaca API returned unsupported asset classes (likely crypto_perp). "
-                    f"Using fallback. Error: {validation_error}"
+                    f"Filtering raw response. Error: {validation_error}"
                 )
-                raise  # Re-raise to trigger fallback
-            
-            # Filter for active, tradable crypto
-            crypto_assets = [
-                asset for asset in all_assets
-                if (
-                    asset.asset_class == AssetClass.CRYPTO and
-                    asset.status == AssetStatus.ACTIVE and
-                    asset.tradable and
-                    asset.symbol not in filters.get("exclude", [])
-                )
-            ]
+                
+                # Get raw response and filter manually
+                import requests
+                response = alpaca_manager.trading_client.get_all_assets()
+                
+                # Manually filter for crypto spot pairs (skip perps)
+                crypto_assets = []
+                for asset in response:
+                    try:
+                        # Only include standard crypto (skip crypto_perp, crypto_perp_u, etc.)
+                        if (
+                            hasattr(asset, 'asset_class') and 
+                            str(asset.asset_class).lower() == 'crypto' and
+                            asset.status == AssetStatus.ACTIVE and
+                            asset.tradable and
+                            asset.symbol not in filters.get("exclude", []) and
+                            '/' in asset.symbol  # Ensure it's a pair (BTC/USD not BTCUSD)
+                        ):
+                            crypto_assets.append(asset)
+                    except Exception as e:
+                        # Skip invalid assets
+                        logger.debug(f"Skipping invalid asset: {e}")
+                        continue
+                
+                # If still failing, use fallback
+                if not crypto_assets:
+                    logger.warning("Could not parse any crypto assets from API. Using fallback.")
+                    return self._get_fallback_crypto()
             
             # Prefer USD quote currency if specified
             if filters.get("preferred_quote") == "USD":

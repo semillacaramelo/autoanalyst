@@ -156,22 +156,34 @@ class MarketScanTools:
     @staticmethod
     def analyze_volatility(symbol_data: Dict[str, pd.DataFrame]) -> List[Dict]:
         """Analyze the volatility of each symbol."""
+        if not symbol_data:
+            logger.warning("analyze_volatility: No symbol_data provided")
+            return []
+        
         volatility_results = []
         for symbol, df in symbol_data.items():
-            if len(df) > 14:
-                atr = TechnicalAnalysisTools.calculate_atr(df, 14)
-                atr_percentile = (
-                    (atr.iloc[-1] / atr.mean()) * 100 if atr.mean() > 0 else 0
-                )
-                volatility_results.append(
-                    {
-                        "symbol": symbol,
-                        "atr": atr.iloc[-1],
-                        "volatility_score": min(
-                            100, atr_percentile
-                        ),  # Cap score at 100
-                    }
-                )
+            try:
+                if len(df) > 14:
+                    atr = TechnicalAnalysisTools.calculate_atr(df, 14)
+                    atr_percentile = (
+                        (atr.iloc[-1] / atr.mean()) * 100 if atr.mean() > 0 else 0
+                    )
+                    volatility_results.append(
+                        {
+                            "symbol": symbol,
+                            "atr": float(atr.iloc[-1]),
+                            "volatility_score": min(
+                                100, atr_percentile
+                            ),  # Cap score at 100
+                        }
+                    )
+                else:
+                    logger.debug(f"Insufficient data for {symbol} (need > 14 bars, got {len(df)})")
+            except Exception as e:
+                logger.error(f"Error analyzing volatility for {symbol}: {e}")
+                continue
+        
+        logger.info(f"Volatility analysis complete: {len(volatility_results)} symbols analyzed")
         return volatility_results
 
     @staticmethod

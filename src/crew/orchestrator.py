@@ -145,12 +145,12 @@ class TradingOrchestrator:
         # Step 4: Log summary of all results
         self.log_cycle_summary(results)
 
-    def _parse_scan_results(self, scan_results: Dict) -> List[Dict]:
+    def _parse_scan_results(self, scan_results) -> List[Dict]:
         """
         Parse and validate market scanner output.
 
         Args:
-            scan_results: Raw output from market scanner crew
+            scan_results: Raw output from market scanner crew (CrewOutput object)
 
         Returns:
             List of asset configurations, each containing:
@@ -163,9 +163,27 @@ class TradingOrchestrator:
         Returns empty list if parsing fails.
         """
         try:
-            return scan_results.get("top_assets", [])
+            # CrewOutput has a pydantic_dict attribute for structured output
+            if hasattr(scan_results, 'pydantic'):
+                result_dict = scan_results.pydantic.model_dump()
+                return result_dict.get("top_assets", [])
+            # Fallback: try to access as dict
+            elif isinstance(scan_results, dict):
+                return scan_results.get("top_assets", [])
+            # Last resort: try raw attribute
+            elif hasattr(scan_results, 'raw'):
+                import json
+                raw_str = str(scan_results.raw)
+                # Remove markdown code blocks if present
+                raw_str = raw_str.strip().removeprefix("```json").removesuffix("```").strip()
+                result_dict = json.loads(raw_str)
+                return result_dict.get("top_assets", [])
+            else:
+                logger.error(f"Unknown scan_results type: {type(scan_results)}")
+                return []
         except Exception as e:
             logger.error(f"Failed to parse market scanner output: {e}")
+            logger.debug(f"Raw scanner output type: {type(scan_results)}")
             logger.debug(f"Raw scanner output:\n{scan_results}")
             return []
 
