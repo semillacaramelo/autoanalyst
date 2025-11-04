@@ -1,5 +1,25 @@
 # Agent Architecture & Trading Strategy
 
+## ⚠️ Important: CrewAI Architecture Considerations (November 4, 2025)
+
+**Known Limitation**: The Market Scanner Crew currently has an architectural issue due to CrewAI's LLM-first design. See [CrewAI Reference Guide](CREWAI_REFERENCE.md) for details.
+
+**Impact**: Scanner agents complete execution but analysis tools return empty results (0 opportunities found).
+
+**Workaround**: Use single-symbol trading crews directly - these work correctly.
+
+**Resolution**: Phase 4.1-4.4 refactoring to implement CrewAI-native data sharing patterns.
+
+**For Developers**: When designing new agents:
+1. 🚨 **NEVER pass DataFrames between tools** - Tools receive JSON-serialized parameters
+2. ✅ **Design tools to fetch their own data** - Each tool should be self-sufficient
+3. ✅ **Use simple types for parameters** - str, int, float, bool, list[str], dict
+4. ✅ **Return JSON-serializable results** - dict with primitives, not complex objects
+
+See [CrewAI Reference Guide](CREWAI_REFERENCE.md) for complete patterns and examples.
+
+---
+
 ## 1. Multi-Strategy Framework
 
 ### Core Concept
@@ -28,7 +48,11 @@ The system has been refactored to support multiple, dynamically selectable tradi
 ## 2. Agent Architecture
 
 ### 2.1. Market Scanner Crew
-This crew runs first to identify a prioritized list of trading opportunities.
+⚠️ **Currently non-functional** (Phase 4 architecture issue)
+
+This crew is designed to run first to identify a prioritized list of trading opportunities. Due to CrewAI's JSON serialization of tool parameters, the DataFrame passing between agents fails.
+
+**Expected workflow** (after Phase 4 refactoring):
 
 ```
 ┌─────────────────────────────────────────┐

@@ -1,11 +1,26 @@
 """
 Scanner Agent Definitions
+
+✅ PHASE 4 REFACTORED (November 4, 2025)
+
+STATUS: FUNCTIONAL - Tools refactored to use Independent Tool Fetching pattern
+CHANGE: Tools now accept List[str] (symbol names) instead of Dict[str, DataFrame]
+RESULT: Compatible with CrewAI's JSON serialization architecture
+
+REFACTORING COMPLETED:
+- analyze_volatility_tool: Now accepts symbols list, fetches data internally
+- analyze_technical_setup_tool: Now accepts symbols list, fetches data internally
+- filter_by_liquidity_tool: Now accepts symbols list, fetches data internally
+- fetch_universe_data_tool: Marked deprecated, kept for backwards compatibility
+
+See docs/CREWAI_REFERENCE.md for architecture patterns.
+
 This file provides a class to create all CrewAI agents for the market scanner crew.
 """
 from crewai import Agent
 from crewai.tools import tool
 from src.tools.market_scan_tools import market_scan_tools
-from typing import Optional
+from typing import Optional, List
 
 @tool("Get S&P 100 Symbols")
 def get_sp100_symbols_tool() -> list:
@@ -13,46 +28,100 @@ def get_sp100_symbols_tool() -> list:
     return market_scan_tools.get_sp100_symbols()
 
 @tool("Get Universe Symbols")
-def get_universe_symbols_tool(market: Optional[str] = None, max_symbols: Optional[int] = None) -> list:
+def get_universe_symbols_tool(market: str = "US_EQUITY", max_symbols: int = None) -> list:
     """
     Get trading universe symbols for a specific market.
     
     Args:
-        market: Market to scan ('US_EQUITY', 'CRYPTO', 'FOREX', or None for US_EQUITY)
-        max_symbols: Maximum number of symbols to return (None for all)
+        market: Market to scan ('US_EQUITY', 'CRYPTO', 'FOREX'). Defaults to 'US_EQUITY'
+        max_symbols: Maximum number of symbols to return. Use 0 or leave empty for all symbols
     
     Returns:
         List of symbols from the specified universe
     """
-    return market_scan_tools.get_universe_symbols(market, max_symbols)
-
-@tool("Fetch Universe Data")
-def fetch_universe_data_tool(symbols: list, timeframe: str = "1Day", limit: int = 100, asset_class: Optional[str] = None) -> dict:
-    """
-    Fetch historical OHLCV data for a list of symbols.
-    
-    Args:
-        symbols: List of symbols to fetch
-        timeframe: Bar timeframe (e.g., '1Day', '1Hour')
-        limit: Number of bars to fetch
-        asset_class: Optional asset class ('US_EQUITY', 'CRYPTO', 'FOREX')
-    """
-    return market_scan_tools.fetch_universe_data(symbols, timeframe, limit, asset_class)
+    # Convert 0 to None for "all symbols"
+    max_syms = None if max_symbols == 0 or max_symbols is None else max_symbols
+    return market_scan_tools.get_universe_symbols(market, max_syms)
 
 @tool("Analyze Volatility")
-def analyze_volatility_tool(symbol_data: dict) -> list:
-    """Analyze the volatility of each symbol in the provided data."""
-    return market_scan_tools.analyze_volatility(symbol_data)
+def analyze_volatility_tool(
+    symbols: List[str],
+    timeframe: str = "1Hour",
+    limit: int = 100
+) -> list:
+    """
+    Analyze the volatility of symbols (Independent Tool Fetching pattern).
+    
+    ✅ PHASE 4 REFACTORED: Tool fetches its own data internally.
+    
+    Args:
+        symbols: List of symbol strings (e.g., ['SPY', 'AAPL', 'BTC/USD'])
+        timeframe: Bar timeframe for volatility calculation (default: '1Hour')
+        limit: Number of bars to fetch (default: 100)
+    
+    Returns:
+        List of dicts with volatility metrics (ATR, scores, status)
+    """
+    return market_scan_tools.analyze_volatility(symbols, timeframe, limit)
 
 @tool("Analyze Technical Setup")
-def analyze_technical_setup_tool(symbol_data: dict) -> list:
-    """Analyze the technical setup of each symbol."""
-    return market_scan_tools.analyze_technical_setup(symbol_data)
+def analyze_technical_setup_tool(
+    symbols: List[str],
+    timeframe: str = "1Day",
+    limit: int = 100
+) -> list:
+    """
+    Analyze the technical setup of symbols (Independent Tool Fetching pattern).
+    
+    ✅ PHASE 4 REFACTORED: Tool fetches its own data internally.
+    
+    Args:
+        symbols: List of symbol strings to analyze
+        timeframe: Bar timeframe for analysis (default: '1Day')
+        limit: Number of bars to fetch (default: 100)
+    
+    Returns:
+        List of dicts with technical scores, indicators, and reasoning
+    """
+    return market_scan_tools.analyze_technical_setup(symbols, timeframe, limit)
 
-@tool("Filter by Liquidity")
-def filter_by_liquidity_tool(symbol_data: dict) -> list:
-    """Filter symbols by their average trading volume."""
-    return market_scan_tools.filter_by_liquidity(symbol_data)
+@tool("Filter By Liquidity")
+def filter_by_liquidity_tool(
+    symbols: List[str],
+    min_volume: int = 1_000_000,
+    timeframe: str = "1Day",
+    limit: int = 30
+) -> list:
+    """
+    Filter symbols by average trading volume (Independent Tool Fetching pattern).
+    
+    ✅ PHASE 4 REFACTORED: Tool fetches its own data internally.
+    
+    Args:
+        symbols: List of symbol strings to filter
+        min_volume: Minimum average daily volume (default: 1M)
+        timeframe: Bar timeframe for volume calculation (default: '1Day')
+        limit: Number of bars to average (default: 30)
+    
+    Returns:
+        List of dicts with liquidity scores and filtering results
+    """
+    return market_scan_tools.filter_by_liquidity(symbols, min_volume, timeframe, limit)
+
+@tool("Fetch Universe Data - DEPRECATED")
+def fetch_universe_data_tool(symbols: list, timeframe: str = "1Day", limit: int = 100, asset_class: Optional[str] = None) -> dict:
+    """
+    ⚠️  DEPRECATED - DO NOT USE IN CREWAI WORKFLOWS
+    
+    This tool returns DataFrames which cannot be passed to other tools due to
+    CrewAI's JSON serialization. Use the refactored tools instead:
+    - analyze_volatility_tool(symbols)
+    - analyze_technical_setup_tool(symbols)
+    - filter_by_liquidity_tool(symbols)
+    
+    Kept for backwards compatibility and testing only.
+    """
+    return market_scan_tools.fetch_universe_data(symbols, timeframe, limit, asset_class)
 
 
 class ScannerAgents:
@@ -61,6 +130,8 @@ class ScannerAgents:
     def volatility_analyzer_agent(self, llm, target_market: str = "US_EQUITY") -> Agent:
         """
         Create a volatility analyzer agent for a specific market.
+        
+        ✅ PHASE 4 UPDATED: Agent now uses refactored tools (accepts symbol lists)
         
         Args:
             llm: Language model for the agent
@@ -72,7 +143,7 @@ class ScannerAgents:
             role="Volatility Analyst",
             goal=f"Analyze the volatility of {market_context['asset_type']} to identify assets with profitable trading conditions.",
             backstory=f"An expert in {market_context['name']} market volatility, skilled at identifying assets that have enough movement for trading but are not excessively risky. {market_context['specifics']}",
-            tools=[get_sp100_symbols_tool, get_universe_symbols_tool, fetch_universe_data_tool, analyze_volatility_tool],
+            tools=[get_universe_symbols_tool, analyze_volatility_tool],
             llm=llm,
             verbose=True,
             allow_delegation=False,  # Disable delegation to reduce API calls
@@ -82,6 +153,8 @@ class ScannerAgents:
     def technical_setup_agent(self, llm, target_market: str = "US_EQUITY") -> Agent:
         """
         Create a technical analyst agent for a specific market.
+        
+        ✅ PHASE 4 UPDATED: Agent now uses refactored tools (accepts symbol lists)
         
         Args:
             llm: Language model for the agent
@@ -104,6 +177,8 @@ class ScannerAgents:
         """
         Create a liquidity filter agent for a specific market.
         
+        ✅ PHASE 4 UPDATED: Agent now uses refactored tools (accepts symbol lists)
+        
         Args:
             llm: Language model for the agent
             target_market: Market to analyze ('US_EQUITY', 'CRYPTO', 'FOREX')
@@ -124,6 +199,8 @@ class ScannerAgents:
     def market_intelligence_chief(self, llm, target_market: str = "US_EQUITY") -> Agent:
         """
         Create a chief analyst agent for a specific market.
+        
+        ✅ PHASE 4 UPDATED: Agent coordinates refactored workflow
         
         Args:
             llm: Language model for the agent

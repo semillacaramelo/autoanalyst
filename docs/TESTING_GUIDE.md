@@ -35,10 +35,21 @@ poetry run python scripts/run_crew.py run --symbol AAPL --strategy rsi_breakout
 ```
 
 ### Running the Market Scanner Only
-To run the market scanner to see the top recommended assets without executing any trades:
+⚠️ **Currently non-functional** (Phase 4 architecture issue - discovered November 4, 2025)
+
+The market scanner has a known architectural issue due to CrewAI's JSON serialization of tool parameters. Scanner will complete but find 0 opportunities.
+
 ```bash
+# Will run but produce empty results
 poetry run python scripts/run_crew.py scan
 ```
+
+**Workaround**: Use single-symbol trading directly:
+```bash
+poetry run python scripts/run_crew.py run --symbol SPY --strategy 3ma
+```
+
+**Technical Details**: See [CrewAI Reference Guide](CREWAI_REFERENCE.md) for architecture patterns and limitations.
 
 ### Checking System Status
 To check the status of API connections and system health.
@@ -92,4 +103,5 @@ poetry run python scripts/run_crew.py autonomous
 ```
 
 ---
-*Last Updated: 2025-10-31*
+*Last Updated: 2025-11-04*
+*Note: Market scanner temporarily non-functional pending Phase 4 architecture revision*

@@ -7,7 +7,26 @@ A modular, backend-first trading system powered by CrewAI multi-agent framework,
 **Phase 1**: ✅ Complete - Critical system fixes (November 2, 2025)  
 **Phase 2**: ✅ Complete - Multi-market 24/7 trading (November 3, 2025)  
 **Phase 3**: ✅ Complete - Comprehensive testing & validation (November 3, 2025)  
-**Current**: 312 tests, 80% coverage, performance validated, production-ready
+**Phase 4**: 🔴 CRITICAL - Architecture revision required (November 4, 2025)  
+**Current**: 312 tests, 80% coverage, **⚠️ Market scanner non-functional** (see Phase 4)
+
+### ⚠️ Known Limitation (Phase 4 Critical Issue)
+
+**Market Scanner Currently Non-Functional**
+
+During autonomous testing on November 4, 2025, we discovered a critical architectural mismatch between CrewAI's LLM-first design and our market scanning implementation:
+
+**Root Cause**: CrewAI serializes all tool parameters to JSON for LLM processing. When tools try to pass pandas DataFrames between agents, they get converted to unparseable strings, causing `TypeError: string indices must be integers`.
+
+**Impact**: Market scanner completes execution but finds 0 opportunities (100% failure rate on analysis tools).
+
+**Solution**: Phase 4 architecture revision implementing CrewAI-native data sharing patterns.
+
+**Current Status**: Single-symbol trading crews work correctly (no DataFrame passing). Scanner requires refactoring.
+
+For technical details, see:
+- [CrewAI Reference Guide](docs/CREWAI_REFERENCE.md) - Architecture patterns and limitations
+- [Feature Roadmap Phase 4](FEATURE_ROADMAP.md#phase-4-architecture-revision--production-hardening-) - Migration plan
 
 ## 🎯 Project Philosophy: Keep It Simple (KIS)
 
@@ -86,6 +105,7 @@ This project has been updated to use the latest versions of all frameworks:
 For detailed information on framework usage, see:
 - [Master SDK Documentation](docs/MASTER_SDK_DOCUMENTATION.md) - **NEW!** Comprehensive reference
 - [Framework Usage Guide](docs/FRAMEWORK_USAGE_GUIDE.md) - Patterns and best practices
+- [CrewAI Reference Guide](docs/CREWAI_REFERENCE.md) - **CRITICAL!** Architecture patterns and data sharing (November 4, 2025)
 
 ### IMPORTANT: Configuring Your Alpaca Data Feed
 Alpaca offers different data tiers. This system is designed to work with both the free and paid plans. By default, it uses the free **IEX** data feed.
@@ -304,20 +324,28 @@ poetry run python scripts/run_crew.py compare \
 ---
 
 **6. Run Market Scanner**
-Scan S&P 100 to find top trading opportunities:
+
+⚠️ **TEMPORARILY DISABLED** (Phase 4 Architecture Issue)
+
+The market scanner is currently non-functional due to a CrewAI architecture mismatch discovered on November 4, 2025. See [Phase 4 Critical Issue](#️-known-limitation-phase-4-critical-issue) above.
 
 ```bash
+# Scanner will complete but find 0 opportunities
 poetry run python scripts/run_crew.py scan
 ```
 
-The scanner:
+**Expected behavior after Phase 4 refactoring:**
 - Analyzes volatility patterns
 - Evaluates technical setups
 - Filters by liquidity (>1M daily volume)
 - Recommends top 5 assets with strategies
 - Uses parallel data fetching for fast execution (completes in ~1-2 minutes)
 
-**Note:** Market scanner now uses concurrent API calls for optimal performance.
+**Workaround**: Use single-symbol trading crews directly:
+```bash
+# Works correctly (no DataFrame passing)
+poetry run python scripts/run_crew.py run --symbols SPY --strategies 3ma
+```
 
 ---
 

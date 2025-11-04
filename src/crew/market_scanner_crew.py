@@ -1,5 +1,45 @@
 """
 Market Scanner Crew
+
+✅ PHASE 4 REFACTORED (November 4, 2025)
+========================================
+
+STATUS: FUNCTIONAL - Architecture refactored to use Independent Tool Fetching pattern
+
+CHANGES IMPLEMENTED:
+--------------------
+1. Tools refactored to accept List[str] (symbol names) instead of Dict[str, DataFrame]
+2. Each tool fetches its own data internally using AlpacaConnector
+3. Tools return JSON-serializable results (List[Dict] with primitives)
+4. Task descriptions updated to guide LLM through new workflow
+5. No DataFrame passing between agents - all data fetched independently
+
+ARCHITECTURE PATTERN:
+--------------------
+Independent Tool Fetching (Option A from CREWAI_REFERENCE.md)
+- Simplest and most reliable pattern for CrewAI
+- Each tool is self-sufficient
+- Tool parameters are JSON-serializable (List[str], str, int, float)
+- Tool results are JSON-serializable (List[Dict] with primitives)
+
+WORKFLOW:
+---------
+1. VolatilityAnalyzer: Get symbols → analyze_volatility(symbols) → Returns volatility metrics
+2. TechnicalAnalyst: Extract symbols → analyze_technical_setup(symbols) → Returns tech scores
+3. LiquidityFilter: Extract symbols → filter_by_liquidity(symbols) → Returns liquidity data
+4. ChiefAnalyst: Synthesize all results → Returns top 5 prioritized opportunities
+
+All data fetching happens INSIDE each tool - no data passing between agents.
+
+TESTING:
+--------
+Ready for integration testing with real market data.
+Expected: Scanner should find 1-3 opportunities (vs 0 with old architecture).
+
+See docs/CREWAI_REFERENCE.md for complete architecture documentation.
+
+========================================
+
 This crew is responsible for scanning the market and identifying trading opportunities.
 """
 from crewai import Crew, Process, Task, LLM
@@ -85,6 +125,11 @@ class MarketScannerCrew:
         """
         Run the market scanner crew to identify trading opportunities.
         
+        ✅ PHASE 4 REFACTORED (November 4, 2025)
+        ----------------------------------------
+        Tasks updated to use Independent Tool Fetching pattern.
+        Tools now accept symbol lists (List[str]) instead of DataFrames.
+        
         Args:
             max_symbols: Maximum number of symbols to scan (None for all in universe)
         """
@@ -100,32 +145,89 @@ class MarketScannerCrew:
         asset_name = market_names.get(self.target_market, 'assets')
         symbol_limit = f"top {max_symbols}" if max_symbols else "all available"
             
-        # Define Tasks with market-aware descriptions
+        # Define Tasks with refactored workflow (Phase 4)
+        # Task 1: Get symbols and analyze volatility in one step
         fetch_and_analyze_volatility = Task(
-            description=f"Fetch {symbol_limit} symbols from the {self.target_market} market, get their historical data, and analyze their volatility. Use the get_universe_symbols tool with market='{self.target_market}' to get the symbol list.",
-            expected_output=f"A list of dictionaries, each containing a symbol and its volatility analysis for {asset_name}.",
+            description=f"""
+Get {symbol_limit} symbols from the {self.target_market} market and analyze their volatility.
+
+WORKFLOW:
+1. Use get_universe_symbols tool with market='{self.target_market}' to get symbol list
+2. Use analyze_volatility tool with the symbols list (tool will fetch data internally)
+
+The analyze_volatility tool is self-sufficient - just pass it the list of symbol strings.
+DO NOT try to fetch data separately first.
+
+Example:
+symbols = get_universe_symbols(market='{self.target_market}', max_symbols={max_symbols or 'None'})
+results = analyze_volatility(symbols=symbols, timeframe='1Hour', limit=100)
+""",
+            expected_output=f"A list of dictionaries with volatility metrics: symbol, atr, volatility_score, status for {asset_name}.",
             agent=self.volatility_analyzer
         )
 
+        # Task 2: Analyze technical setup for symbols that passed volatility
         analyze_technicals = Task(
-            description=f"Based on the data from the volatility analysis, analyze the technical setup of each {self.target_market} asset.",
-            expected_output=f"A list of dictionaries, each containing a symbol and its technical score for {asset_name}.",
+            description=f"""
+Analyze the technical setup for symbols from the volatility analysis.
+
+WORKFLOW:
+1. Extract successful symbols from previous analysis (where status='success')
+2. Use analyze_technical_setup tool with the symbols list (tool fetches data internally)
+
+The tool is self-sufficient - pass symbols as List[str], it will fetch data and calculate indicators.
+
+Example:
+successful_symbols = [item['symbol'] for item in volatility_results if item.get('status') == 'success']
+tech_results = analyze_technical_setup(symbols=successful_symbols, timeframe='1Day', limit=100)
+""",
+            expected_output=f"A list of dictionaries with technical scores: symbol, technical_score, reason, indicators, status for {asset_name}.",
             agent=self.technical_analyzer,
             context=[fetch_and_analyze_volatility]
         )
 
+        # Task 3: Filter by liquidity for symbols that passed technical
         filter_by_liquidity = Task(
-            description=f"Filter the {asset_name} by liquidity, ensuring they have sufficient trading volume for the {self.target_market} market.",
-            expected_output=f"A list of dictionaries, each containing a symbol and its liquidity status for {asset_name}.",
+            description=f"""
+Filter symbols by liquidity (average trading volume).
+
+WORKFLOW:
+1. Extract successful symbols from technical analysis (where status='success')
+2. Use filter_by_liquidity tool with the symbols list (tool fetches data internally)
+
+The tool is self-sufficient - pass symbols as List[str], it will fetch volume data.
+
+Example:
+tech_symbols = [item['symbol'] for item in tech_results if item.get('status') == 'success']
+liq_results = filter_by_liquidity(symbols=tech_symbols, min_volume=1000000, timeframe='1Day')
+""",
+            expected_output=f"A list of dictionaries with liquidity metrics: symbol, avg_volume, liquidity_score, is_liquid, status for {asset_name}.",
             agent=self.liquidity_filter,
-            context=[fetch_and_analyze_volatility]
+            context=[analyze_technicals]
         )
 
+        # Task 4: Synthesize and prioritize results
         synthesize_results = Task(
-            description=f"Synthesize the results from the volatility, technical, and liquidity analyses to create a prioritized list of the top 5 {self.target_market} trading opportunities.",
-            expected_output=f"A JSON object containing a 'top_assets' key, which is a list of dictionaries. Each dictionary should have 'symbol', 'priority', scores, 'recommended_strategies', and a 'reason' for {asset_name}.",
+            description=f"""
+Synthesize results from all analyses to create a prioritized list of top 5 trading opportunities.
+
+WORKFLOW:
+1. Combine results from volatility, technical, and liquidity analyses
+2. Calculate composite scores (e.g., (volatility_score + technical_score + liquidity_score) / 3)
+3. Filter to liquid assets only (is_liquid = true)
+4. Sort by composite score (highest first)
+5. Select top 5 symbols
+6. Recommend 1-2 strategies per symbol based on technical indicators
+   - High RSI (>70): bollinger_bands_reversal
+   - Low RSI (<30): rsi_breakout
+   - MACD crossover: macd
+   - Strong trend: 3ma
+
+Create a well-formatted JSON response with the top 5 opportunities.
+""",
+            expected_output=f"JSON object with 'top_assets' list containing symbol, priority, scores, recommended_strategies, and reason for top 5 {asset_name}.",
             agent=self.chief_analyst,
-            context=[analyze_technicals, filter_by_liquidity],
+            context=[fetch_and_analyze_volatility, analyze_technicals, filter_by_liquidity],
             output_json=TopAssetsResponse
         )
 

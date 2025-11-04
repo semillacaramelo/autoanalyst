@@ -1,9 +1,32 @@
 # AutoAnalyst - Production Deployment Guide
 
 **Last Updated**: November 4, 2025  
-**System Status**: ✅ Production Ready  
+**System Status**: ⚠️ Partial - Single-symbol trading ready, scanner requires Phase 4 fix  
 **Test Coverage**: 80% (312 tests passing)  
 **Deployment Mode**: Paper Trading Validated
+
+---
+
+## ⚠️ IMPORTANT: Phase 4 Critical Architecture Issue
+
+**Market Scanner Currently Non-Functional**
+
+During autonomous testing on November 4, 2025, we discovered a critical architectural mismatch:
+
+**Problem**: CrewAI serializes all tool parameters to JSON. Our market scanner tools attempt to pass pandas DataFrames between agents, which get converted to unparseable strings, causing `TypeError: string indices must be integers`.
+
+**Impact**:
+- ✅ **Single-symbol trading works correctly** - Use `run --symbols SPY --strategies 3ma`
+- 🔴 **Market scanner finds 0 opportunities** - Scanner completes but analysis tools fail (100% failure rate)
+- ✅ **All other functionality works** - Backtesting, status checks, monitoring
+
+**Temporary Workaround**: Use single-symbol trading crews directly (no DataFrame passing involved).
+
+**Solution**: Phase 4.1-4.4 architecture revision (8-12 hours) - implementing CrewAI-native data sharing patterns.
+
+**References**:
+- [CrewAI Reference Guide](CREWAI_REFERENCE.md) - Complete architecture and patterns
+- [Feature Roadmap Phase 4](../FEATURE_ROADMAP.md#phase-4-architecture-revision--production-hardening-) - Migration plan
 
 ---
 
@@ -372,6 +395,153 @@ sed -i 's/DRY_RUN=false/DRY_RUN=true/' .env
 - BUY: Price touches lower band + reversal confirmation
 - SELL: Price touches upper band + reversal confirmation
 - Requires: RSI confirmation
+
+---
+
+## 🔍 Troubleshooting
+
+### CrewAI-Specific Issues
+
+### Issue: Tool Returns Empty Results or TypeErrors
+
+**Symptom**: Tools complete but return empty lists, or see `TypeError: string indices must be integers`
+
+**Cause**: Attempting to pass complex Python objects (DataFrames, NumPy arrays) between tools
+
+**Why This Happens**:
+1. Tool A returns a DataFrame
+2. CrewAI serializes it to JSON for LLM processing
+3. DataFrame becomes unparseable string: `"open high low close...\ntimestamp..."`
+4. Tool B receives string instead of DataFrame
+5. Code tries `df['column']` on a string → TypeError
+
+**Solution**:
+- **Immediate**: Use single-symbol trading (no DataFrame passing)
+- **Long-term**: Refactor tools to use CrewAI patterns:
+  - Independent Tool Fetching (each tool gets its own data)
+  - Knowledge Sources (store data in ChromaDB)
+  - Flows (keep DataFrames in Flow code)
+
+**Reference**: See `docs/CREWAI_REFERENCE.md` for complete patterns and examples
+
+---
+
+### Issue: Market Scanner Finds 0 Opportunities
+
+**Status**: Known issue (Phase 4)
+
+**Cause**: Scanner tools use DataFrame passing (violates CrewAI architecture)
+
+**Workaround**: Use direct symbol trading:
+```bash
+# Instead of: python scripts/run_crew.py scan
+# Use:
+python scripts/run_crew.py run --symbols SPY,QQQ,IWM --strategies 3ma --parallel
+```
+
+**Fix Timeline**: Phase 4.1-4.4 (8-12 hours development time)
+
+---
+
+### CrewAI Tool Design Guidelines
+
+**✅ DO:**
+- Design tools to fetch their own data internally
+- Use simple types for parameters: `str`, `int`, `float`, `bool`, `list[str]`, `dict`
+- Return JSON-serializable results: `dict`, `list`, primitives
+- Store large datasets in Knowledge Sources (ChromaDB)
+- Use Memory for simple session state (text-based facts)
+
+**❌ DON'T:**
+- Pass DataFrames, NumPy arrays, or custom objects between tools
+- Assume tool outputs pass directly to next tool (LLM intermediates)
+- Return complex Python objects from tools
+- Store DataFrames in Crew memory
+
+**Pattern Example (Correct)**:
+```python
+@tool
+def analyze_symbol(symbol: str, timeframe: str = "1D") -> dict:
+    """Each tool is self-sufficient - fetches its own data."""
+    # Fetch data inside the tool
+    connector = AlpacaConnector()
+    df = connector.get_market_data(symbol, timeframe)
+    
+    # Compute and return simple results
+    return {
+        "symbol": symbol,
+        "signal": "BUY" if condition else "HOLD",
+        "confidence": 0.85,
+        "indicators": {"rsi": 45.2, "macd": 1.3}
+    }
+```
+
+---
+
+### Knowledge Source Configuration
+
+**When to Use**: Large datasets (market data, historical records) that need to be queried
+
+**Setup**:
+```python
+from crewai import KnowledgeSource
+
+# Create knowledge source
+market_knowledge = KnowledgeSource(
+    name="market_data",
+    storage_path="./data/knowledge/market",
+    chunk_size=1000  # Text chunks for RAG
+)
+
+# Add data as text (markdown, CSV format)
+market_knowledge.add(
+    content="""
+    # SPY Market Data (2025-10-01 to 2025-11-04)
+    
+    | Date | Open | High | Low | Close | Volume |
+    |------|------|------|-----|-------|--------|
+    | 2025-11-04 | 450.20 | 452.30 | 449.80 | 451.50 | 85000000 |
+    | 2025-11-03 | 448.50 | 450.80 | 447.90 | 450.20 | 92000000 |
+    ...
+    """,
+    metadata={"symbol": "SPY", "date_range": "2025-10-01_to_2025-11-04"}
+)
+
+# Use in agent
+agent = Agent(
+    knowledge_sources=[market_knowledge],
+    instructions="Query market_data for symbol information"
+)
+```
+
+**Query Pattern**:
+- Agent automatically queries knowledge source via semantic search
+- Returns relevant text chunks based on query
+- LLM processes text to extract information
+
+---
+
+### Data Sharing Best Practices
+
+**Scenario 1: Real-Time Market Data (Current Day)**
+- **Best Pattern**: Independent Tool Fetching
+- **Why**: Fast, simple, no storage overhead
+- **Implementation**: Each analysis tool fetches current data from Alpaca
+
+**Scenario 2: Historical Backtesting Data**
+- **Best Pattern**: Knowledge Sources
+- **Why**: Pre-load once, query many times
+- **Implementation**: Load historical data into ChromaDB, agents query by symbol/date
+
+**Scenario 3: Session State (Scan Results, Counters)**
+- **Best Pattern**: Shared Memory
+- **Why**: Persistent across tasks, simple facts
+- **Implementation**: Enable `memory=True` on Crew, store text facts
+
+**Scenario 4: Complex Multi-Step Workflows**
+- **Best Pattern**: CrewAI Flows
+- **Why**: Keep complex objects in Flow code, pass simple params to Crews
+- **Implementation**: Flow manages DataFrames, Crews receive symbol names/IDs
 
 ---
 

@@ -1,10 +1,12 @@
 # Framework Usage Guide
 
-**Last Updated:** November 2024  
+**Last Updated:** November 4, 2025  
 **Project:** AI-Driven Trading Crew  
 **Stack:** CrewAI 1.3+, Google Gemini API, Alpaca Markets Python SDK
 
 This comprehensive guide documents the correct usage patterns for all frameworks in this project, based on the latest official documentation as of November 2024.
+
+**⚠️ CRITICAL**: For CrewAI architecture patterns and data sharing limitations, see [CrewAI Reference Guide](CREWAI_REFERENCE.md) (70KB comprehensive reference added November 4, 2025).
 
 ---
 

@@ -4,6 +4,8 @@
 **Status**: ✅ **COMPLETE** (100% - 4/4 features done)  
 **Duration**: Same-day completion (Phase 3 initiated and completed on November 3, 2025)
 
+**⚠️ Update (November 4, 2025)**: During post-Phase 3 autonomous testing, a critical architectural issue was discovered in the market scanner. See Phase 4 in [FEATURE_ROADMAP.md](../FEATURE_ROADMAP.md) for details. Single-symbol trading remains fully functional.
+
 ---
 
 ## Executive Summary

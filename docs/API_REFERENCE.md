@@ -7,10 +7,14 @@ This document provides an overview of the key classes, modules, and external API
 ## 1. Core Modules & Classes
 
 ### `src.crew.orchestrator.TradingOrchestrator`
+⚠️ **Note**: Market scanner component requires Phase 4 refactoring (November 4, 2025)
+
 The main entry point for running trading cycles. It's responsible for:
-- Running the `MarketScannerCrew`.
-- Dispatching `TradingCrew` instances in parallel for the top assets.
-- Managing the `GlobalRateLimiter`.
+- Running the `MarketScannerCrew` (⚠️ currently non-functional due to DataFrame serialization issue)
+- Dispatching `TradingCrew` instances in parallel for the top assets (or specified symbols)
+- Managing the `GlobalRateLimiter`
+
+**Current Workaround**: Use orchestrator with explicit symbol list instead of scanner results.
 
 ### `src.utils.global_scheduler.AutoTradingScheduler`
 The engine for 24/7 autonomous operation. Its responsibilities include:
@@ -54,6 +58,7 @@ This module contains the pluggable trading strategies. All strategies inherit fr
 ### 3.1. CrewAI
 - **Purpose:** The core framework for orchestrating the multi-agent system.
 - **Usage:** Used to define the agents, tasks, and crews for both market scanning and trading.
+- **Architecture Note (🔴 November 4, 2025):** CrewAI uses LLM-first design with JSON serialization for all tool parameters. See [CrewAI Reference Guide](CREWAI_REFERENCE.md) for architecture patterns and data sharing limitations.
 - **Further Reading:** [CrewAI Documentation](https://docs.crewai.com/)
 
 ### 3.2. Click
@@ -68,4 +73,4 @@ This module contains the pluggable trading strategies. All strategies inherit fr
 
 ---
 
-*This document was last updated to reflect the completion of the 6-phase project plan.*
+*This document was last updated November 4, 2025 to reflect Phase 3 completion and Phase 4 architecture discovery.*

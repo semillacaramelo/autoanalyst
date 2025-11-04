@@ -74,6 +74,129 @@ AutoAnalyst is a production-ready algorithmic trading system that combines multi
 
 ## Key Architecture Patterns
 
+### 0. CrewAI Tool Communication Architecture ⚠️ **CRITICAL**
+
+**LLM-First Design Principle**: CrewAI routes ALL tool communication through the LLM with JSON serialization. This is fundamentally different from traditional Python function calling.
+
+**🚫 What Does NOT Work (Anti-Patterns):**
+
+1. **Passing Complex Python Objects Between Tools**
+   ```python
+   # ❌ WRONG: This will fail in production
+   @tool
+   def fetch_data() -> Dict[str, pd.DataFrame]:
+       return {"SPY": dataframe}  # DataFrame gets serialized to string
+   
+   @tool
+   def analyze(data: Dict[str, pd.DataFrame]):
+       df = data["SPY"]  # This is now a STRING, not DataFrame
+       return df['high'].mean()  # TypeError: string indices must be int
+   ```
+
+2. **Assuming Tool Output Passes Directly to Next Tool**
+   - Reality: Tool A → Returns DataFrame → LLM sees string representation → CrewAI serializes to JSON → Tool B receives string
+   - This breaks: DataFrames, NumPy arrays, custom classes, file handles
+
+3. **Ignoring Serialization in Tool Design**
+   - All tool parameters MUST be JSON-serializable: `str`, `int`, `float`, `bool`, `list`, `dict`
+   - If you see `Dict[str, pd.DataFrame]` as a parameter type, it's a design error
+
+**✅ What DOES Work (Correct Patterns):**
+
+**Pattern 1: Independent Tool Fetching (Recommended)**
+```python
+# Each tool fetches its own data based on simple parameters
+@tool
+def analyze_volatility(symbol: str, timeframe: str = "1D") -> dict:
+    """Analyze volatility for a symbol. Tool fetches its own data internally."""
+    # Fetch data inside the tool
+    connector = AlpacaConnector()
+    df = connector.get_market_data(symbol, timeframe)
+    
+    # Calculate and return JSON-serializable results
+    volatility = df['high'].std()
+    return {
+        "symbol": symbol,
+        "volatility": float(volatility),
+        "recommendation": "high" if volatility > threshold else "low"
+    }
+```
+
+**Pattern 2: Knowledge Sources (for Large Datasets)**
+```python
+# Store data in ChromaDB, query by symbol
+from crewai import KnowledgeSource
+
+market_data_source = KnowledgeSource(
+    name="market_data",
+    storage_path="./data/market_knowledge"
+)
+
+# Load data as markdown/CSV text
+market_data_source.add(
+    content="BTC/USD OHLCV Data\n...\n2025-11-04,68500,69000,68000,68800,1200000",
+    metadata={"symbol": "BTC/USD", "date_range": "2025-10-01_to_2025-11-04"}
+)
+
+# Agent queries knowledge source (text-based)
+agent = Agent(
+    knowledge_sources=[market_data_source],
+    instructions="Query market_data knowledge source for symbol data"
+)
+```
+
+**Pattern 3: Shared Memory (for Session State)**
+```python
+# Store simple state, not complex objects
+from crewai import Crew
+
+crew = Crew(
+    agents=[...],
+    tasks=[...],
+    memory=True  # Enables short-term memory
+)
+
+# Store simple facts as text
+# "SPY volatility is 15.3"
+# "BTC/USD passed liquidity filter"
+# "Last scan found 3 opportunities"
+```
+
+**Pattern 4: CrewAI Flows (for Complex Pipelines)**
+```python
+from crewai.flow.flow import Flow, listen, start
+
+class TradingFlow(Flow):
+    @start()
+    def fetch_data(self):
+        # Keep DataFrames in Flow code (not passed to Crews)
+        self.market_data = {"SPY": fetch_dataframe()}
+        return list(self.market_data.keys())  # Pass symbol list only
+    
+    @listen(fetch_data)
+    def analyze_symbols(self, symbols: list[str]):
+        # Crew receives symbol names (strings), not DataFrames
+        results = crew.kickoff(inputs={"symbols": symbols})
+        return results
+```
+
+**Critical Rules for AutoAnalyst Development:**
+
+1. **🚨 NEVER pass DataFrames between tools** - Redesign tools to fetch their own data
+2. **🚨 NEVER assume tool outputs pass directly** - LLM always intermediates
+3. **✅ ALWAYS use simple types in tool parameters** - str, int, float, bool, list, dict
+4. **✅ ALWAYS make tools self-sufficient** - Each tool fetches/computes what it needs
+5. **✅ PREFER Independent Tool pattern** - Simplest and most reliable
+6. **✅ USE Knowledge Sources for large data** - Market data, historical records
+7. **✅ USE Memory for session state** - Simple facts, not objects
+8. **✅ USE Flows for complex workflows** - Keep DataFrames in Flow, pass IDs to Crews
+
+**For Complete Reference**: See `docs/CREWAI_REFERENCE.md` (70KB comprehensive guide)
+
+**Current Impact**: Market scanner tools violate these rules (Phase 4 fixes this).
+
+---
+
 ### 1. Multi-Agent Trading Workflow (4 Agents)
 **Sequential execution with context passing:**
 1. **Data Collector Agent** → Fetches & validates OHLCV data from Alpaca
@@ -346,7 +469,8 @@ For production deployment:
 
 ## Related Documentation
 
-- **Feature Roadmap:** `FEATURE_ROADMAP.md` - Development phases and priorities
+- **CrewAI Reference:** `docs/CREWAI_REFERENCE.md` - **CRITICAL!** Architecture patterns, data sharing, anti-patterns (November 4, 2025)
+- **Feature Roadmap:** `FEATURE_ROADMAP.md` - Development phases and priorities (includes Phase 4 architecture fix)
 - **Phase 1 Summary:** `docs/PHASE1_CRITICAL_FIXES.md` - Critical fixes completed
 - **Multi-Market Plan:** `docs/MULTIMARKET_IMPLEMENTATION.md` - 24/7 trading features
 - **Crypto Verification:** `docs/ALPACA_CRYPTO_VERIFICATION.md` - Alpaca crypto support
@@ -410,7 +534,12 @@ When working on this project:
   - Feature 3.3: ✅ COMPLETE - Test coverage expansion (80% achieved, 109 tests)
   - Feature 3.4: ✅ COMPLETE - Performance testing (15 tests)
   - **Completion**: November 3, 2025
-- **Phase 4**: 📋 PLANNED (Production hardening)
+- **Phase 4**: ✅ COMPLETE - Architecture Revision & Production Hardening (November 4, 2025)
+  - **Issue Discovered**: November 4, 2025 (autonomous testing)
+  - **Root Cause**: CrewAI DataFrame serialization breaks market scanner
+  - **Solution**: Independent Tool Fetching pattern (tools fetch own data)
+  - **Status**: 4.1-4.4 features complete, validation partial (Gemini API 503 errors)
+  - **Result**: 99 symbols processed successfully (0% error rate vs 100% before)
 
 **Development Approach**: Feature-based implementation (AI-driven, not calendar-based)
 
@@ -442,6 +571,6 @@ When working on this project:
 
 ---
 
-**Last Updated:** November 3, 2025
-**Project Status:** Phase 3 complete - 312 tests, 80% coverage, performance validated, production-ready
-**Current Version:** 0.3.0
+**Last Updated:** November 4, 2025
+**Project Status:** Phase 4 complete - Market scanner refactored and functional (Independent Tool Fetching pattern)
+**Current Version:** 0.4.0 (Phase 4 architecture fix validated)

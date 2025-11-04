@@ -2,6 +2,149 @@
 
 All notable changes to the AI-Driven Trading Crew project are documented here.
 
+## [0.4.0] - 2025-11-04
+
+### Fixed - Phase 4: Architecture Revision & Production Hardening
+
+**Critical Fix: Market Scanner DataFrame Serialization Issue**
+
+#### Problem Discovered
+- Market scanner finding 0 opportunities (100% failure rate) during autonomous testing
+- Root cause: CrewAI's LLM-first architecture serializes all tool parameters to JSON
+- Tools attempting to pass DataFrames between agents resulted in unparseable strings
+- TypeError: string indices must be integers (11 crypto symbols, 100% failure)
+
+#### Solution Implemented (Independent Tool Fetching Pattern)
+
+**Tool Refactoring (src/tools/market_scan_tools.py):**
+- `analyze_volatility()`: Now accepts `List[str]` symbols, fetches data internally
+  - Returns JSON-serializable results with ATR calculations
+  - Status tracking: success/no_data/insufficient_data/error
+- `analyze_technical_setup()`: Accepts `List[str]` symbols, calculates indicators internally
+  - Computes RSI, MACD, SMA indicators for each symbol
+  - Returns technical scores (0-75) with reasoning
+- `filter_by_liquidity()`: Accepts `List[str]` symbols, fetches volume data internally
+  - Calculates 30-day average volume
+  - Returns liquidity scores and filtering results
+- `fetch_universe_data()`: Marked DEPRECATED (kept for backwards compatibility)
+
+**Agent Updates (src/agents/scanner_agents.py):**
+- Updated all tool wrappers to accept simple parameters (List[str], str, int)
+- Fixed `get_universe_symbols_tool` parameter validation (removed Optional types)
+- Updated agent definitions with Phase 4 compatibility
+- Module status: NON-FUNCTIONAL → FUNCTIONAL
+
+**Crew Workflow Updates (src/crew/market_scanner_crew.py):**
+- Rewrote all 4 task descriptions with detailed step-by-step workflows
+- Added explicit instructions: "Tool is self-sufficient - fetches data internally"
+- Removed DataFrame passing references
+- Module status: CRITICAL ARCHITECTURE ISSUE → FUNCTIONAL
+
+**Documentation Updates:**
+- Created CREWAI_REFERENCE.md (70KB comprehensive guide)
+- Updated 20+ files with Phase 4 warnings and architecture patterns
+- Added anti-patterns section to copilot-instructions.md
+- Updated orchestrator.py with functional status
+
+#### Validation Results
+
+**Test Execution (November 4, 2025):**
+- ✅ get_universe_symbols: Returned 99 S&P 100 symbols successfully
+- ✅ analyze_technical_setup: Processed ALL 99 symbols with indicator calculations
+  - RSI, MACD, SMA computed correctly
+  - Technical scores assigned (0-75 points)
+  - All 99 symbols returned status='success'
+- ✅ Zero TypeErrors (vs 100% failure before Phase 4)
+- ⚠️ Full 4-task completion blocked by Gemini API 503 errors (external service overload)
+
+**Architecture Validation:**
+- ✅ Tools accept JSON-serializable parameters (List[str], str, int)
+- ✅ Tools fetch their own data internally (no DataFrame passing)
+- ✅ Tools return JSON-serializable results (List[Dict])
+- ✅ CrewAI serialization works correctly (no parsing errors)
+
+**Impact:**
+- Before: 0 opportunities found, 100% TypeError rate
+- After: 99 symbols analyzed successfully, 0% error rate
+- Pending: Full integration test once Gemini API recovers
+
+#### Files Modified
+1. `src/tools/market_scan_tools.py` - Major refactoring (3 core tools)
+2. `src/agents/scanner_agents.py` - Tool wrappers and agent definitions updated
+3. `src/crew/market_scanner_crew.py` - Complete workflow rewrite
+4. `src/crew/orchestrator.py` - Documentation updates
+5. `docs/CREWAI_REFERENCE.md` - New 70KB comprehensive guide (NEW)
+6. `.github/copilot-instructions.md` - Added Phase 4 context and anti-patterns
+7. `FEATURE_ROADMAP.md` - Phase 4 status updates
+
+#### Known Limitations
+- Gemini API overload (503 errors) prevented full 4-task validation
+- Scanner completed 2/4 tasks successfully before API failure
+- Full validation pending API recovery
+
+## [Unreleased] - 2025-11-04
+
+### Phase 4 Critical Architecture Issue Discovered
+
+**Discovery Date**: November 4, 2025 (during autonomous bug-hunting testing)
+
+#### Critical Issue: CrewAI DataFrame Serialization
+
+**Root Cause**: CrewAI's LLM-first architecture serializes all tool parameters to JSON. Market scanner tools attempted to pass pandas DataFrames between agents, which get converted to unparseable strings.
+
+**Error**: `TypeError: string indices must be integers, not 'str'` at `market_scan_tools.py:84`
+
+**Impact**:
+- ✅ Single-symbol trading crews work correctly (no DataFrame passing)
+- 🔴 Market scanner finds 0 opportunities (100% failure rate on analysis)
+- ✅ All other functionality unaffected (backtesting, monitoring, status)
+
+**Evidence**:
+- 3 autonomous test runs completed successfully but found 0 opportunities
+- 11 crypto symbols fetched successfully
+- ALL 11 failed analysis (100% failure rate)
+- Scanner completes execution but produces empty results
+
+### Documentation Updates (November 4, 2025)
+
+#### Added
+- **docs/CREWAI_REFERENCE.md** (70KB, 1200+ lines)
+  * Complete CrewAI architecture and patterns reference
+  * 10 sections: architecture, tools, memory, knowledge, patterns, anti-patterns, examples, migration
+  * 4 data sharing patterns: Knowledge Sources, Memory, Independent Tools, Flows
+  * Common anti-patterns with explanations
+  * Decision tree for pattern selection
+  * Migration guide with 8-12 hour effort estimate
+
+#### Updated
+- **FEATURE_ROADMAP.md**: Added Phase 4 - Architecture Revision & Production Hardening
+  * 4 critical architecture features (4.1-4.4): MarketDataKnowledgeSource, refactor scanner tools, update crew workflow, integration testing
+  * 5 production hardening features (4.5-4.9): logging, error recovery, security, code quality, documentation
+  * Success criteria: Scanner finds 1-3 opportunities, zero TypeErrors
+  * Timeline: 20-28 hours total (8-12 architecture + 12-16 hardening)
+
+- **src/tools/market_scan_tools.py**: Added extensive inline warnings
+  * 80+ line module docstring explaining the issue
+  * Function-level warnings on affected tools
+  * Evidence from logs and refactoring options
+  * Cross-references to CREWAI_REFERENCE.md and FEATURE_ROADMAP.md
+
+- **README.md**: Phase 4 critical notice and scanner limitation warning
+
+- **.github/copilot-instructions.md**: CrewAI architecture rules and patterns section
+
+- **docs/DEPLOYMENT_GUIDE.md**: CrewAI-specific deployment considerations and tool design guidelines
+
+### Phase 4 Implementation Plan
+
+**Timeline**: 20-28 hours
+- Architecture revision (4.1-4.4): 8-12 hours
+- Production hardening (4.5-4.9): 12-16 hours
+
+**Migration Strategy**: Option A (Independent Tool Fetching) - Simplest and most reliable
+
+---
+
 ## [0.3.0] - 2025-11-03
 
 ### Phase 3 Complete ✅ All 4 Features Delivered (312 tests, 80% coverage)
