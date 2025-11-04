@@ -48,25 +48,41 @@ All notable changes to the AI-Driven Trading Crew project are documented here.
 
 #### Validation Results
 
-**Test Execution (November 4, 2025):**
-- ✅ get_universe_symbols: Returned 99 S&P 100 symbols successfully
-- ✅ analyze_technical_setup: Processed ALL 99 symbols with indicator calculations
-  - RSI, MACD, SMA computed correctly
-  - Technical scores assigned (0-75 points)
-  - All 99 symbols returned status='success'
-- ✅ Zero TypeErrors (vs 100% failure before Phase 4)
-- ⚠️ Full 4-task completion blocked by Gemini API 503 errors (external service overload)
+**Test Execution (November 4, 2025 - 13:07-13:13 UTC):**
+- **Environment**: Paper trading (DRY_RUN=true, paper-api.alpaca.markets)
+- **Market**: US_EQUITY (S&P 100 stocks, 99 symbols)
+- **Scanner Performance**:
+  - Task 1 (Volatility Analysis): 96/99 symbols successful (97% success rate)
+  - Task 2 (Technical Analysis): 96/96 symbols successful (100% success rate)
+  - Task 3 (Liquidity Filter): 12/96 symbols identified as liquid (>1M volume)
+  - Task 4 (Synthesis): Completed successfully
+  - Total execution time: ~6 minutes
+  - Error rate: 3% (vs 100% before Phase 4)
 
 **Architecture Validation:**
 - ✅ Tools accept JSON-serializable parameters (List[str], str, int)
 - ✅ Tools fetch their own data internally (no DataFrame passing)
 - ✅ Tools return JSON-serializable results (List[Dict])
 - ✅ CrewAI serialization works correctly (no parsing errors)
+- ✅ Liquid symbols identified: AAPL, AMZN, GOOGL, NVDA, TSLA, BAC, PFE, VZ, CMCSA, AMD, INTC, T
 
 **Impact:**
-- Before: 0 opportunities found, 100% TypeError rate
-- After: 99 symbols analyzed successfully, 0% error rate
-- Pending: Full integration test once Gemini API recovers
+- Before: 0 opportunities found, 100% DataFrame serialization error rate
+- After: 96 symbols analyzed, 12 opportunities identified, 3% failure rate
+- Result: Scanner fully functional, achieving design goal of 1-3+ opportunities
+
+**Bug Fixes During Validation:**
+- **Asset Classifier - Hyphenated Ticker Support**
+  - Issue: Scanner failed on BRK-B (Berkshire Hathaway Class B)
+  - Error: `ValueError: Unable to classify symbol 'BRK-B'`
+  - Root Cause: US_EQUITY regex `^[A-Z]{1,5}$` didn't match dashes
+  - Fix: Updated pattern to `^[A-Z]{1,5}(-[A-Z])?$`
+  - Impact: Now handles BRK-B and other hyphenated tickers
+  - File: `src/utils/asset_classifier.py`
+
+**Known Limitations:**
+- BRK-B rejected by Alpaca API (requires BRK.B format - external API limitation)
+- ANTM, FISV returned no data (likely delisted/merged symbols)
 
 #### Files Modified
 1. `src/tools/market_scan_tools.py` - Major refactoring (3 core tools)
@@ -78,9 +94,9 @@ All notable changes to the AI-Driven Trading Crew project are documented here.
 7. `FEATURE_ROADMAP.md` - Phase 4 status updates
 
 #### Known Limitations
-- Gemini API overload (503 errors) prevented full 4-task validation
-- Scanner completed 2/4 tasks successfully before API failure
-- Full validation pending API recovery
+- BRK-B rejected by Alpaca API (requires BRK.B format - external API limitation)
+- ANTM, FISV returned no data (likely delisted/merged symbols)
+- Scanner validation complete, full autonomous mode testing pending
 
 ## [Unreleased] - 2025-11-04
 

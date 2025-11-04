@@ -53,7 +53,7 @@ class AssetClassifier:
         },
         "US_EQUITY": {
             "patterns": [
-                r"^[A-Z]{1,5}$",           # AAPL, SPY, MSFT, GOOGL
+                r"^[A-Z]{1,5}(-[A-Z])?$",  # AAPL, SPY, MSFT, GOOGL, BRK-B
             ],
             "client_type": "stock",
             "markets": ["US_EQUITY"],
