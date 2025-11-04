@@ -163,28 +163,49 @@ class TradingOrchestrator:
         Returns empty list if parsing fails.
         """
         try:
-            # CrewOutput has a pydantic_dict attribute for structured output
-            if hasattr(scan_results, 'pydantic'):
+            # Log raw type for debugging
+            logger.debug(f"Scanner output type: {type(scan_results)}")
+            
+            # CrewOutput has different attributes depending on output type
+            # Try pydantic attribute first (for structured output)
+            if hasattr(scan_results, 'pydantic') and scan_results.pydantic is not None:
                 result_dict = scan_results.pydantic.model_dump()
+                logger.debug(f"Parsed pydantic output keys: {result_dict.keys()}")
                 return result_dict.get("top_assets", [])
+            
+            # Try json_dict attribute (alternate structured output)
+            elif hasattr(scan_results, 'json_dict') and scan_results.json_dict is not None:
+                logger.debug(f"Parsed json_dict output keys: {scan_results.json_dict.keys()}")
+                return scan_results.json_dict.get("top_assets", [])
+            
             # Fallback: try to access as dict
             elif isinstance(scan_results, dict):
+                logger.debug(f"Parsed dict output keys: {scan_results.keys()}")
                 return scan_results.get("top_assets", [])
-            # Last resort: try raw attribute
+            
+            # Last resort: try raw attribute and parse JSON
             elif hasattr(scan_results, 'raw'):
                 import json
                 raw_str = str(scan_results.raw)
+                logger.debug(f"Raw output (first 200 chars): {raw_str[:200]}")
                 # Remove markdown code blocks if present
                 raw_str = raw_str.strip().removeprefix("```json").removesuffix("```").strip()
                 result_dict = json.loads(raw_str)
+                logger.debug(f"Parsed raw output keys: {result_dict.keys()}")
                 return result_dict.get("top_assets", [])
+            
             else:
                 logger.error(f"Unknown scan_results type: {type(scan_results)}")
+                logger.error(f"Available attributes: {[a for a in dir(scan_results) if not a.startswith('_')]}")
                 return []
+                
         except Exception as e:
             logger.error(f"Failed to parse market scanner output: {e}")
             logger.debug(f"Raw scanner output type: {type(scan_results)}")
-            logger.debug(f"Raw scanner output:\n{scan_results}")
+            if hasattr(scan_results, 'raw'):
+                logger.debug(f"Raw scanner output:\n{scan_results.raw}")
+            elif hasattr(scan_results, '__dict__'):
+                logger.debug(f"Scanner output __dict__: {scan_results.__dict__}")
             return []
 
     def log_cycle_summary(self, results: List[Dict]):
