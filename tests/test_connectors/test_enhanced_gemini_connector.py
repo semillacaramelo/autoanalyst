@@ -29,7 +29,7 @@ class TestEnhancedGeminiConnectionManager(unittest.TestCase):
         
         manager = EnhancedGeminiConnectionManager(api_keys=["key1", "key2"])
         
-        self.assertEqual(len(manager.api_keys), 2)
+        self.assertEqual(len(manager.all_api_keys), 2)
         self.assertIsInstance(manager.quota_tracker, ModelQuotaTracker)
         
     def test_mask_api_key(self):
