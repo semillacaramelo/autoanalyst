@@ -39,6 +39,30 @@ class ModelTier(Enum):
     PRO = "pro"  # Fallback: Lower quota (2 RPM, 50 RPD)
 
 
+class KeyHealthTracker:
+    """Tracks the health of API keys to identify and sideline invalid ones."""
+    def __init__(self, api_keys: List[str]):
+        self.key_health = {key: {"success": 0, "failure": 0, "invalid": False} for key in api_keys}
+
+    def record_success(self, api_key: str):
+        if api_key in self.key_health:
+            self.key_health[api_key]["success"] += 1
+
+    def record_failure(self, api_key: str):
+        if api_key in self.key_health:
+            self.key_health[api_key]["failure"] += 1
+
+    def mark_invalid(self, api_key: str):
+        """Mark a key as permanently invalid."""
+        if api_key in self.key_health:
+            self.key_health[api_key]["invalid"] = True
+            logger.warning(f"Gemini API key ...{api_key[-4:]} marked as invalid. It will not be used again.")
+
+    def get_valid_keys(self) -> List[str]:
+        """Return a list of keys that are not marked as invalid."""
+        return [key for key, health in self.key_health.items() if not health["invalid"]]
+
+
 @dataclass
 class ModelQuota:
     """Quota limits for a specific model tier (free tier)"""
@@ -177,21 +201,7 @@ class DynamicModelManager:
                 return []
                 
             except Exception as e:
-                delay = base_delay * (2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
-                
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        f"Failed to query available models (attempt {attempt + 1}/{max_retries}): {e}. "
-                        f"Retrying in {delay:.1f}s..."
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.error(
-                        f"Failed to query available models after {max_retries} attempts: {e}. "
-                        f"Using fallback configuration."
-                    )
-                    # Return empty list on failure, will fall back to configured defaults
-                    return []
+                raise e
 
     def classify_model(self, model_name: str) -> ModelTier:
         """Classify a model into Flash or Pro tier"""
@@ -266,15 +276,22 @@ class EnhancedGeminiConnectionManager:
     """
 
     def __init__(self, api_keys: Optional[List[str]] = None):
-        self.api_keys = api_keys or settings.get_gemini_keys_list()
-        if not self.api_keys:
+        self.all_api_keys = api_keys or settings.get_gemini_keys_list()
+        if not self.all_api_keys:
             raise ValueError("No Gemini API keys configured")
 
+        self.key_health_tracker = KeyHealthTracker(self.all_api_keys)
         self.quota_tracker = ModelQuotaTracker()
-        self.model_manager = DynamicModelManager(self.api_keys[0])
 
-        # Get dynamic model lists
-        self.flash_models, self.pro_models = self.model_manager.get_preferred_models()
+        # Find the first valid key to initialize the model manager
+        initial_key = self._get_initial_valid_key()
+        if initial_key:
+            self.model_manager = DynamicModelManager(initial_key)
+            # Get dynamic model lists
+            self.flash_models, self.pro_models = self.model_manager.get_preferred_models()
+        else:
+            self.model_manager = None
+            self.flash_models, self.pro_models = [], []
 
         # Thread lock for ensuring atomic quota checking and model selection during parallel execution.
         # Prevents race conditions when multiple trading crews run concurrently and attempt to access
@@ -283,7 +300,7 @@ class EnhancedGeminiConnectionManager:
         self._lock = threading.Lock()
 
         logger.info(
-            f"Enhanced Gemini connector initialized with {len(self.api_keys)} keys"
+            f"Enhanced Gemini connector initialized with {len(self.all_api_keys)} keys"
         )
         logger.info(f"Preferred Flash models: {self.flash_models}")
         logger.info(f"Fallback Pro models: {self.pro_models}")
@@ -294,6 +311,22 @@ class EnhancedGeminiConnectionManager:
         if len(api_key) <= 4:
             return "***"
         return f"...{api_key[-4:]}"
+
+    def _get_initial_valid_key(self) -> str:
+        """Find and return the first valid API key."""
+        for key in self.all_api_keys:
+            try:
+                # A lightweight call to test the key
+                client = genai.Client(api_key=key)
+                list(client.models.list())
+                return key
+            except Exception as e:
+                if "API key not valid" in str(e) or "API key expired" in str(e):
+                    self.key_health_tracker.mark_invalid(key)
+                else:
+                    # Re-raise unexpected errors
+                    pass
+        return None
 
     def get_llm_for_crewai(self, estimated_requests: int = 8, auto_rotate: bool = True) -> Tuple[str, str]:
         """
@@ -318,8 +351,12 @@ class EnhancedGeminiConnectionManager:
         instead of waiting, enabling efficient multi-key usage for intensive operations.
         """
         with self._lock:
-            # Try each key
-            for key_idx, api_key in enumerate(self.api_keys):
+            valid_keys = self.key_health_tracker.get_valid_keys()
+            if not valid_keys:
+                raise RuntimeError("All Gemini API keys have been marked as invalid.")
+
+            # Try each valid key
+            for key_idx, api_key in enumerate(valid_keys):
                 masked_key = self.mask_api_key(api_key)
 
                 # Try Flash models first (preferred due to higher quota)

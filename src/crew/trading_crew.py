@@ -55,15 +55,19 @@ class TradingCrew:
     
     def __init__(self, skip_init: bool = False):
         """
-        Initialize the trading crew.
+        Initialize the trading crew. Initialization is deferred until the `run` method is called
+        to speed up the initial object creation.
         
         Args:
-            skip_init: If True, skip initialization (for help/validation commands)
+            skip_init: If True, fully skip initialization. `run` will not be available.
         """
-        if skip_init:
-            self.crew = None
-            return
-            
+        self.crew = None
+        self._skip_init = skip_init
+    def _setup_crew(self):
+        """Complete the initialization of the crew. This is called lazily by `run`."""
+        if self.crew is not None:
+            return  # Already initialized
+
         # Use enhanced Gemini connector with dynamic model selection
         # Automatically selects best available model and key based on quota
         model_name, api_key = enhanced_gemini_manager.get_llm_for_crewai()
@@ -104,7 +108,7 @@ class TradingCrew:
         )
 
         logger.info(f"TradingCrew initialized with dynamic model selection: {model_name}")
-    
+
     def run(
         self,
         symbol: str = None,
@@ -115,9 +119,12 @@ class TradingCrew:
         """
         Execute the complete trading workflow.
         """
-        if self.crew is None:
+        if self._skip_init:
             raise RuntimeError("TradingCrew was initialized with skip_init=True. Cannot run.")
-            
+
+        # Lazily initialize the crew on the first run
+        self._setup_crew()
+
         if symbol is None:
             symbol = settings.trading_symbol
         
@@ -152,12 +159,20 @@ class TradingCrew:
             }
         
         except Exception as e:
+            if "API key expired" in str(e) or "API key not valid" in str(e):
+                if hasattr(self.crew, 'llm') and hasattr(self.crew.llm, 'api_key'):
+                    api_key = self.crew.llm.api_key
+                    enhanced_gemini_manager.key_health_tracker.mark_invalid(api_key)
+                    logger.warning(f"Retrying run for {symbol} after marking key ...{api_key[-4:]} as invalid.")
+                    self.crew = None
+                    return self.run(symbol, strategy, timeframe, limit)
+
             logger.error(f"Trading crew execution failed: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
                 "symbol": symbol,
-                "strategy": strategy
+                "strategy": strategy,
             }
 
 # Global instance factory function for lazy initialization
