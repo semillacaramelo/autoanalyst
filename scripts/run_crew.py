@@ -115,6 +115,7 @@ def run(symbols, strategies, parallel, scan, top, timeframe, limit):
         trading_orchestrator.run_cycle()
         return
 
+    # Use provided symbols or fallback to TRADING_SYMBOL from .env (only for manual testing)
     symbol_list = symbols.split(',') if symbols else [settings.trading_symbol]
     strategy_list = strategies.split(',')
 

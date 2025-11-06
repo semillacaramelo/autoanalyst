@@ -159,8 +159,8 @@ ALPACA_API_KEY="your_paper_api_key"
 ALPACA_SECRET_KEY="your_paper_secret_key"
 ALPACA_BASE_URL="https://paper-api.alpaca.markets"
 
-# Trading Parameters
-TRADING_SYMBOL="SPY"
+# Trading Parameters (TRADING_SYMBOL is optional - only used as fallback for manual testing)
+TRADING_SYMBOL="SPY"  # Ignored in autonomous/scan modes (AI selects assets)
 MA_FAST_PERIOD=8
 MA_MEDIUM_PERIOD=13
 MA_SLOW_PERIOD=21

@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     )
     
     # Trading Parameters
-    trading_symbol: str = Field(default="SPY", description="Trading symbol")
+    trading_symbol: str = Field(
+        default="SPY",
+        description="Fallback trading symbol for manual 'run' command (ignored in autonomous/scan modes where AI selects assets)"
+    )
     ma_fast_period: int = Field(default=8, ge=1, description="Fast MA period")
     ma_medium_period: int = Field(default=13, ge=1)
     ma_slow_period: int = Field(default=21, ge=1)

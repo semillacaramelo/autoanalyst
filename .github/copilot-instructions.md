@@ -349,7 +349,9 @@ ALPACA_DATA_FEED=iex  # 'iex' (free) or 'sip' (paid)
 **Optional (with defaults):**
 ```bash
 # Trading Parameters
-TRADING_SYMBOL=SPY
+# NOTE: TRADING_SYMBOL is optional - only used as fallback for manual testing
+# In autonomous/scan modes, AI scanner automatically selects best opportunities
+TRADING_SYMBOL=SPY  # Fallback for manual 'run' command (ignored in autonomous/scan)
 MA_FAST_PERIOD=8
 MA_MEDIUM_PERIOD=13
 MA_SLOW_PERIOD=21
