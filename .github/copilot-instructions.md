@@ -478,6 +478,7 @@ For production deployment:
 
 ## Related Documentation
 
+- **AI Agent Guidelines:** `AGENTS.md` - **MANDATORY!** Universal testing requirements, SDLC, code quality standards (November 5, 2025)
 - **CrewAI Reference:** `docs/CREWAI_REFERENCE.md` - **CRITICAL!** Architecture patterns, data sharing, anti-patterns (November 4, 2025)
 - **Feature Roadmap:** `FEATURE_ROADMAP.md` - Development phases and priorities (includes Phase 4 architecture fix)
 - **Phase 1 Summary:** `docs/PHASE1_CRITICAL_FIXES.md` - Critical fixes completed
@@ -531,6 +532,18 @@ When working on this project:
 - **Single source of truth**: Avoid creating duplicate documentation; consolidate information
 - **AI-driven development**: Development velocity depends on feature complexity, not calendar deadlines
 - **Trust the roadmap**: `FEATURE_ROADMAP.md` is the authoritative source for development priorities
+
+**MANDATORY Testing & Development Standards:**
+- **ALL changes MUST include tests** - No code committed without comprehensive test coverage
+- **Testing is NOT optional** - See `AGENTS.md` for complete requirements
+- **Follow SDLC rigorously** - Requirements → Design → Implementation → Testing → Review → Deploy
+- **Test-Driven Development preferred** - Write tests BEFORE implementation when possible
+- **100% test pass rate required** - No commits with failing tests, no skipped tests
+- **Code quality gates enforced** - Coverage ≥75%, linting passes, type checks pass
+- **Security validation mandatory** - Input validation, no hardcoded secrets, SQL parameterization
+- **Documentation obligations** - Docstrings, README updates, CHANGELOG entries required
+- **Self-review checklist** - Verify functionality, quality, testing, documentation, security before completion
+- **Error handling required** - Comprehensive try-catch blocks, structured logging, graceful degradation
 
 **Development Status:**
 
