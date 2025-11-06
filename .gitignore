@@ -42,3 +42,7 @@ htmlcov/
 
 # Exclude consolidated source files
 *_merged_sources*.txt
+
+# Temporary and generated files
+data/market_rotation_state.json*
+interactive_test*.log
