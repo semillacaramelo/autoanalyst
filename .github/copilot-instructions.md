@@ -24,12 +24,19 @@ AutoAnalyst is a production-ready algorithmic trading system that combines multi
 
 ```
 /home/planetazul3/autoanalyst/
-├── main.py                          # Main entry point for live trading loop
-├── pyproject.toml                   # Poetry dependencies
-├── requirements.txt                 # pip dependencies
-├── .env                            # Environment configuration (git-ignored)
+├── CHANGELOG.md
+├── consolidate_project_sources.py
+├── FRAMEWORK_UPDATE_SUMMARY.md
+├── new_project_plan.md
+├── project_resolution_roadmap.md
+├── project_verification_report.md
+├── pyproject.toml
+├── QUICKSTART.md
+├── README.md
+├── requirements.txt
+├── TASK_SUMMARY.md
 ├── scripts/
-│   ├── run_crew.py                 # Comprehensive CLI for all operations
+│   ├── run_crew.py                 # Main CLI interface (unified entry point)
 │   ├── setup_env.sh                # Environment setup script
 │   └── validate_config.py          # Configuration validator
 ├── src/

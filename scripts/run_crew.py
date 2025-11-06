@@ -453,8 +453,79 @@ def compare(strategies, symbol, start, end):
     results = backtester.compare(symbol, strategy_list)
     console.print(json.dumps(results, indent=2))
 
+def _generate_autonomous_status_table(run_count: int, start_time: datetime, scheduler) -> Table:
+    """Generate live status table for autonomous mode with UI (migrated from main.py)."""
+    table = Table(title="AutoAnalyst - Autonomous Trading Status", show_header=True, header_style="bold cyan")
+    table.add_column("Metric", style="cyan", width=30)
+    table.add_column("Value", style="magenta")
+
+    uptime = datetime.now() - start_time
+    uptime_str = str(uptime).split('.')[0]  # Remove microseconds
+    
+    # Get current market and next scan time from scheduler if available
+    current_market = getattr(scheduler, 'current_market', 'Unknown')
+    
+    table.add_row("🟢 Status", "Running")
+    table.add_row("⏱️  Uptime", uptime_str)
+    table.add_row("🔄 Cycle Count", str(run_count))
+    table.add_row("🌍 Current Market", current_market)
+    table.add_row("💰 Mode", "DRY RUN" if settings.dry_run else "PAPER TRADING")
+    table.add_row("📊 Max Positions", str(settings.max_open_positions))
+    table.add_row("🎯 Risk Per Trade", f"{settings.max_risk_per_trade * 100}%")
+    table.add_row("🛑 Daily Loss Limit", f"{settings.daily_loss_limit * 100}%")
+
+    return table
+
+def _autonomous_with_ui():
+    """Run autonomous mode with live status UI (migrated from main.py)."""
+    from datetime import datetime
+    import time
+    from rich.live import Live
+    
+    start_time = datetime.now()
+    run_count = 0
+    
+    console.print(Panel.fit(
+        "[bold cyan]🤖 Autonomous Mode with Live UI[/bold cyan]\\n\\n"
+        "[green]✓[/green] Real-time status display\\n"
+        "[green]✓[/green] 24/7 continuous operation\\n"
+        "[green]✓[/green] Press Ctrl+C to stop gracefully\\n\\n"
+        f"[dim]Started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
+        border_style="cyan"
+    ))
+    
+    scheduler = AutoTradingScheduler()
+    
+    with Live(_generate_autonomous_status_table(run_count, start_time, scheduler), 
+              console=console, screen=False, refresh_per_second=1) as live:
+        try:
+            # Wrap scheduler execution with status updates
+            while True:
+                try:
+                    # Run one cycle
+                    scheduler.orchestrator.run_cycle()
+                    run_count += 1
+                    
+                    # Update display
+                    live.update(_generate_autonomous_status_table(run_count, start_time, scheduler))
+                    
+                    # Wait for next cycle
+                    next_interval = scheduler._calculate_scan_interval()
+                    for _ in range(int(next_interval)):
+                        time.sleep(1)
+                        live.update(_generate_autonomous_status_table(run_count, start_time, scheduler))
+                        
+                except Exception as e:
+                    console.print(f"\\n[yellow]Error in cycle: {e}[/yellow]")
+                    time.sleep(5)  # Brief pause before retry
+                    
+        except KeyboardInterrupt:
+            console.print("\\n\\n[yellow]Shutdown signal received. Stopping gracefully...[/yellow]")
+            console.print("[green]✓ Autonomous mode stopped successfully.[/green]")
+
 @cli.command()
-def autonomous():
+@click.option('--with-ui', is_flag=True, help='Show live status UI while running (like main.py)')
+def autonomous(with_ui: bool):
     """
     Launch the system in fully autonomous 24/7 trading mode.
     
@@ -488,43 +559,52 @@ def autonomous():
     - DRY_RUN=false: Execute on paper account (recommended)
     - Set MAX_DAILY_TRADES, DAILY_LOSS_LIMIT in .env
     
-    Example:
+    Examples:
+        # Run with logs only (background-friendly)
         python scripts/run_crew.py autonomous
+        
+        # Run with live status UI (foreground)
+        python scripts/run_crew.py autonomous --with-ui
         
     [Press Ctrl+C to stop]
     """
-    console.print(Panel.fit(
-        "[bold cyan]🤖 Launching Fully Autonomous 24/7 Trading Mode[/bold cyan]\\n\\n"
-        "[green]✓[/green] Multi-market support (US Equity, Crypto, Forex)\\n"
-        "[green]✓[/green] Intelligent market rotation\\n"
-        "[green]✓[/green] Adaptive scan intervals (5-30 min)\\n"
-        "[green]✓[/green] Paper trading with Alpaca\\n"
-        "[green]✓[/green] Risk management enforced\\n\\n"
-        "[dim]Press Ctrl+C to stop at any time[/dim]",
-        border_style="cyan"
-    ))
-    
-    # Show current configuration
-    mode = "DRY RUN (simulated)" if settings.dry_run else "PAPER TRADING (Alpaca paper account)"
-    console.print(f"\\n[bold]Mode:[/bold] [cyan]{mode}[/cyan]")
-    console.print(f"[bold]Max Daily Trades:[/bold] {settings.max_daily_trades}")
-    console.print(f"[bold]Daily Loss Limit:[/bold] {settings.daily_loss_limit * 100}%")
-    console.print(f"[bold]Max Risk Per Trade:[/bold] {settings.max_risk_per_trade * 100}%\\n")
-    
-    if not settings.autonomous_mode_enabled:
-        console.print("[yellow]Note: AUTONOMOUS_MODE_ENABLED=false in .env. Running unlimited cycles for testing.[/yellow]\\n")
-    
-    console.print("[bold green]🚀 System starting...[/bold green] (monitoring markets 24/7)\\n")
-    
-    try:
-        scheduler = AutoTradingScheduler()
-        scheduler.run_forever()
-    except KeyboardInterrupt:
-        console.print("\\n\\n[yellow]Shutdown signal received. Stopping gracefully...[/yellow]")
-        console.print("[green]✓ Autonomous mode stopped successfully.[/green]")
-    except Exception as e:
-        console.print(f"\\n[bold red]Error:[/bold red] {str(e)}")
-        console.print("[yellow]Check logs/trading_crew_*.log for details[/yellow]")
+    if not with_ui:
+        # Original behavior - logs only
+        console.print(Panel.fit(
+            "[bold cyan]🤖 Launching Fully Autonomous 24/7 Trading Mode[/bold cyan]\\n\\n"
+            "[green]✓[/green] Multi-market support (US Equity, Crypto, Forex)\\n"
+            "[green]✓[/green] Intelligent market rotation\\n"
+            "[green]✓[/green] Adaptive scan intervals (5-30 min)\\n"
+            "[green]✓[/green] Paper trading with Alpaca\\n"
+            "[green]✓[/green] Risk management enforced\\n\\n"
+            "[dim]Press Ctrl+C to stop at any time[/dim]",
+            border_style="cyan"
+        ))
+        
+        # Show current configuration
+        mode = "DRY RUN (simulated)" if settings.dry_run else "PAPER TRADING (Alpaca paper account)"
+        console.print(f"\\n[bold]Mode:[/bold] [cyan]{mode}[/cyan]")
+        console.print(f"[bold]Max Daily Trades:[/bold] {settings.max_daily_trades}")
+        console.print(f"[bold]Daily Loss Limit:[/bold] {settings.daily_loss_limit * 100}%")
+        console.print(f"[bold]Max Risk Per Trade:[/bold] {settings.max_risk_per_trade * 100}%\\n")
+        
+        if not settings.autonomous_mode_enabled:
+            console.print("[yellow]Note: AUTONOMOUS_MODE_ENABLED=false in .env. Running unlimited cycles for testing.[/yellow]\\n")
+        
+        console.print("[bold green]🚀 System starting...[/bold green] (monitoring markets 24/7)\\n")
+        
+        try:
+            scheduler = AutoTradingScheduler()
+            scheduler.run_forever()
+        except KeyboardInterrupt:
+            console.print("\\n\\n[yellow]Shutdown signal received. Stopping gracefully...[/yellow]")
+            console.print("[green]✓ Autonomous mode stopped successfully.[/green]")
+        except Exception as e:
+            console.print(f"\\n[bold red]Error:[/bold red] {str(e)}")
+            console.print("[yellow]Check logs/trading_crew_*.log for details[/yellow]")
+    else:
+        # New behavior - live status UI (from main.py)
+        _autonomous_with_ui()
 
 def get_status_panel() -> Panel:
     """Returns a Panel with the current system status."""
