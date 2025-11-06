@@ -462,8 +462,14 @@ def _generate_autonomous_status_table(run_count: int, start_time: datetime, sche
     uptime = datetime.now() - start_time
     uptime_str = str(uptime).split('.')[0]  # Remove microseconds
     
-    # Get current market and next scan time from scheduler if available
-    current_market = getattr(scheduler, 'current_market', 'Unknown')
+    # Get current market from rotation state if available
+    try:
+        from utils.state_manager import StateManager
+        state_manager = StateManager()
+        rotation_state = state_manager.load_state('market_rotation_state.json')
+        current_market = rotation_state.get('current_market', 'Unknown')
+    except:
+        current_market = 'Unknown'
     
     table.add_row("🟢 Status", "Running")
     table.add_row("⏱️  Uptime", uptime_str)
@@ -481,9 +487,12 @@ def _autonomous_with_ui():
     from datetime import datetime
     import time
     from rich.live import Live
+    import threading
     
     start_time = datetime.now()
-    run_count = 0
+    run_count = [0]  # Use list to allow modification in nested function
+    scheduler = AutoTradingScheduler()
+    stop_event = threading.Event()
     
     console.print(Panel.fit(
         "[bold cyan]🤖 Autonomous Mode with Live UI[/bold cyan]\\n\\n"
@@ -494,31 +503,33 @@ def _autonomous_with_ui():
         border_style="cyan"
     ))
     
-    scheduler = AutoTradingScheduler()
+    def run_scheduler():
+        """Run scheduler in separate thread and track cycles."""
+        original_run_cycle = scheduler.orchestrator.run_cycle
+        
+        def wrapped_run_cycle(*args, **kwargs):
+            result = original_run_cycle(*args, **kwargs)
+            run_count[0] += 1
+            return result
+        
+        scheduler.orchestrator.run_cycle = wrapped_run_cycle
+        
+        try:
+            scheduler.run_forever()
+        except KeyboardInterrupt:
+            pass
     
-    with Live(_generate_autonomous_status_table(run_count, start_time, scheduler), 
+    # Start scheduler in background thread
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()
+    
+    # Main thread: update UI
+    with Live(_generate_autonomous_status_table(run_count[0], start_time, scheduler), 
               console=console, screen=False, refresh_per_second=1) as live:
         try:
-            # Wrap scheduler execution with status updates
-            while True:
-                try:
-                    # Run one cycle
-                    scheduler.orchestrator.run_cycle()
-                    run_count += 1
-                    
-                    # Update display
-                    live.update(_generate_autonomous_status_table(run_count, start_time, scheduler))
-                    
-                    # Wait for next cycle
-                    next_interval = scheduler._calculate_scan_interval()
-                    for _ in range(int(next_interval)):
-                        time.sleep(1)
-                        live.update(_generate_autonomous_status_table(run_count, start_time, scheduler))
-                        
-                except Exception as e:
-                    console.print(f"\\n[yellow]Error in cycle: {e}[/yellow]")
-                    time.sleep(5)  # Brief pause before retry
-                    
+            while scheduler_thread.is_alive():
+                live.update(_generate_autonomous_status_table(run_count[0], start_time, scheduler))
+                time.sleep(1)
         except KeyboardInterrupt:
             console.print("\\n\\n[yellow]Shutdown signal received. Stopping gracefully...[/yellow]")
             console.print("[green]✓ Autonomous mode stopped successfully.[/green]")
