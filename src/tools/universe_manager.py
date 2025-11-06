@@ -156,12 +156,14 @@ class UniverseManager:
                 ]
                 
             except Exception as validation_error:
-                # Alpaca API returned asset classes not in SDK enum (e.g., crypto_perp)
+                # Alpaca API returned asset classes not in SDK enum (e.g., crypto_perp, ASCX exchange)
+                # This is EXPECTED BEHAVIOR - Alpaca adds new asset types before SDK updates
                 # Fall back to manual filtering of raw API response
-                logger.warning(
-                    f"Alpaca API returned unsupported asset classes (likely crypto_perp). "
-                    f"Filtering raw response. Error: {validation_error}"
+                logger.info(
+                    f"Alpaca API returned new asset classes not yet supported by SDK (crypto_perp/ASCX). "
+                    f"Using fallback mechanism. This is normal and handled gracefully."
                 )
+                logger.debug(f"Validation error details: {validation_error}")
                 
                 # Get raw response and filter manually
                 import requests
@@ -186,8 +188,11 @@ class UniverseManager:
                         logger.debug(f"Skipping invalid asset: {e}")
                         continue
                 
-                # If still failing, use fallback
                 if not crypto_assets:
+                    # Fallback couldn't parse API response - use hardcoded universe
+                    logger.error(f"Failed to fetch crypto universe: {validation_error}")
+                    logger.warning("Using fallback crypto universe (15 symbols)")
+                    return self._get_fallback_crypto_universe()
                     logger.warning("Could not parse any crypto assets from API. Using fallback.")
                     return self._get_fallback_crypto()
             

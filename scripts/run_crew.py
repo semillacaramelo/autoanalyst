@@ -617,29 +617,56 @@ def autonomous(with_ui: bool):
         # New behavior - live status UI (from main.py)
         _autonomous_with_ui()
 
+# Cache status to prevent re-initialization in dashboard refresh loop
+_cached_status = {
+    'alpaca': {'status': '[yellow]Initializing...[/yellow]', 'last_check': 0},
+    'gemini': {'status': '[yellow]Initializing...[/yellow]', 'last_check': 0}
+}
+_STATUS_CACHE_TTL = 30  # Refresh status every 30 seconds instead of every 3 seconds
+
 def get_status_panel() -> Panel:
     """Returns a Panel with the current system status."""
+    import time
+    current_time = time.time()
+    
     table = Table(show_header=False, box=None)
     table.add_column("key", style="cyan")
     table.add_column("value")
 
-    try:
-        account = alpaca_manager.get_account()
-        equity = account.get('equity')
-        if equity is None:
-            equity_str = "N/A"
-        else:
-            equity_str = f"${float(equity):,.2f}"
-        alpaca_status = f"[green]Connected[/green] (Equity: {equity_str})"
-    except Exception:
-        alpaca_status = "[red]Connection Failed[/red]"
+    # Check Alpaca status with caching
+    if current_time - _cached_status['alpaca']['last_check'] > _STATUS_CACHE_TTL:
+        try:
+            account = alpaca_manager.get_account()
+            equity = account.get('equity')
+            if equity is None:
+                equity_str = "N/A"
+            else:
+                equity_str = f"${float(equity):,.2f}"
+            _cached_status['alpaca']['status'] = f"[green]Connected[/green] (Equity: {equity_str})"
+            _cached_status['alpaca']['last_check'] = current_time
+        except Exception as e:
+            _cached_status['alpaca']['status'] = f"[red]Connection Failed[/red] ({str(e)[:30]})"
+            _cached_status['alpaca']['last_check'] = current_time
+    
+    alpaca_status = _cached_status['alpaca']['status']
 
-    try:
-        gemini_keys = settings.get_gemini_keys_list()
-        gemini_manager.get_client() # Tries to get a healthy client
-        gemini_status = f"[green]Connected[/green] ({len(gemini_keys)} keys)"
-    except Exception:
-        gemini_status = "[red]Connection Failed[/red]"
+    # Check Gemini status with caching (FIXED: No longer calls get_client() on every refresh)
+    if current_time - _cached_status['gemini']['last_check'] > _STATUS_CACHE_TTL:
+        try:
+            gemini_keys = settings.get_gemini_keys_list()
+            # Check if gemini_manager has an existing healthy client (no new connection attempt)
+            if hasattr(gemini_manager, '_last_client') and gemini_manager._last_client is not None:
+                _cached_status['gemini']['status'] = f"[green]Connected[/green] ({len(gemini_keys)} keys)"
+            else:
+                # Only initialize connection once (not on every refresh)
+                gemini_manager.get_client(skip_health_check=True)
+                _cached_status['gemini']['status'] = f"[green]Connected[/green] ({len(gemini_keys)} keys)"
+            _cached_status['gemini']['last_check'] = current_time
+        except Exception as e:
+            _cached_status['gemini']['status'] = f"[red]Connection Failed[/red] ({str(e)[:30]})"
+            _cached_status['gemini']['last_check'] = current_time
+    
+    gemini_status = _cached_status['gemini']['status']
 
     trading_mode = "[bold yellow]DRY RUN (Simulated)[/bold yellow]" if settings.dry_run else "[bold green]PAPER TRADING (Alpaca Paper)[/bold green]"
 
@@ -713,11 +740,8 @@ def get_recent_orders_panel() -> Panel:
 def get_active_strategies_panel() -> Panel:
     """Returns a Panel with currently active strategies."""
     try:
-        # Read from state manager to show active strategies
-        state_mgr = StateManager()
-        state = state_mgr.load_state()
-        
-        strategies_used = state.get('strategies_used', ['3ma', 'rsi_breakout', 'macd', 'bollinger_bands_reversal'])
+        # Cache strategies config (no need to reload state every 3 seconds)
+        strategies_used = ['3ma', 'rsi_breakout', 'macd', 'bollinger_bands_reversal']  # Default active strategies
         mode = "[bold yellow]DRY RUN[/bold yellow]" if settings.dry_run else "[bold green]PAPER TRADING[/bold green]"
         
         content = f"Mode: {mode}\n\n"

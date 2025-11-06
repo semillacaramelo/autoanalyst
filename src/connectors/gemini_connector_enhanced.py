@@ -134,7 +134,15 @@ class DynamicModelManager:
         self._cache_ttl: float = 3600  # Cache for 1 hour
 
     def get_available_models(self, force_refresh: bool = False) -> List[Model]:
-        """Query API for available models with caching"""
+        """
+        Query API for available models with caching and retry logic.
+        
+        Args:
+            force_refresh: If True, bypass cache and query API
+            
+        Returns:
+            List of available models, or empty list if query fails after retries
+        """
         now = time.time()
 
         if (
@@ -144,23 +152,46 @@ class DynamicModelManager:
         ):
             return self._models_cache
 
-        try:
-            if genai is None:
-                raise RuntimeError("google-genai not available")
+        # Retry logic with exponential backoff
+        max_retries = 3
+        base_delay = 1.0  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                if genai is None:
+                    raise RuntimeError("google-genai library not installed")
 
-            client = genai.Client(api_key=self.api_key)
-            models = list(client.models.list())
+                client = genai.Client(api_key=self.api_key)
+                models = list(client.models.list())
 
-            self._models_cache = models
-            self._cache_time = now
+                self._models_cache = models
+                self._cache_time = now
 
-            logger.info(f"Discovered {len(models)} available models from Gemini API")
-            return models
+                logger.info(f"Discovered {len(models)} available models from Gemini API")
+                return models
 
-        except Exception as e:
-            logger.error(f"Failed to query available models: {e}")
-            # Return empty list on failure, will fall back to configured defaults
-            return []
+            except RuntimeError as e:
+                # Library not installed - don't retry
+                logger.error(f"google-genai library not available: {e}")
+                logger.info("Install with: pip install google-genai")
+                return []
+                
+            except Exception as e:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
+                
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Failed to query available models (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.error(
+                        f"Failed to query available models after {max_retries} attempts: {e}. "
+                        f"Using fallback configuration."
+                    )
+                    # Return empty list on failure, will fall back to configured defaults
+                    return []
 
     def classify_model(self, model_name: str) -> ModelTier:
         """Classify a model into Flash or Pro tier"""
@@ -183,7 +214,10 @@ class DynamicModelManager:
 
         if not models:
             # Fallback to configured defaults
-            logger.warning("Using configured default models (API query failed)")
+            logger.info(
+                "Using configured default models from settings. "
+                f"Flash: {settings.primary_llm_models}, Pro: {settings.fallback_llm_models}"
+            )
             return (settings.primary_llm_models, settings.fallback_llm_models)
 
         flash_models = []
